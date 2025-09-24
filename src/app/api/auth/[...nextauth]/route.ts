@@ -1,4 +1,26 @@
-import NextAuth from 'next-auth';
+import NextAuth from "next-auth";
+ // Optional: Move config to a separate file
+
+const handler = NextAuth({
+  providers: [
+    // Add your authentication providers here (e.g., Credentials, Google, etc.)
+  ],
+  pages: {
+    signIn: "/auth/login", // Default login page for all users
+  },
+  callbacks: {
+    async redirect({ url, baseUrl }) {
+      console.log('NextAuth redirect callback:', { url, baseUrl });
+      
+      // Allow dynamic redirection based on user roles or other conditions
+      if (url.startsWith(baseUrl)) return url;
+      return baseUrl;
+    },
+  },
+});
+
+export { handler as GET, handler as POST };
+/*import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 export const authOptions = {
@@ -19,9 +41,9 @@ export const authOptions = {
     }),
   ],
   pages: {
-    signIn: '/auth/login',
+    signIn: '/auth/register',
   },
 };
 
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST };*/

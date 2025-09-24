@@ -6,7 +6,7 @@ export default function Header() {
     <header>
       <nav>
         {/* Other nav links */}
-        <button onClick={() => signOut({ callbackUrl: '/auth/login' })}>Logout</button>
+        <button onClick={() => signOut({ callbackUrl: '/auth/login_Student' })}>Logout</button>
       </nav>
     </header>
   );
