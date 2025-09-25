@@ -74,7 +74,7 @@ export default function Policy() {
        </div> 
        <div className="flex justify-end gap-1 jflex " >
         <Link href="/auth/registration" className="px-4 py-2 text-black transition duration-300 bg-white border border-black border-solid rounded outline-black hover:bg-black">ย้อนกลับ</Link> 
-        <Link href="/auth/login_Student" className="px-4 py-2 text-white transition duration-300 bg-blue-900 rounded hover:bg-blue-700">สมัครสมาชิก</Link>
+        <Link href="/auth/login" className="px-4 py-2 text-white transition duration-300 bg-blue-900 rounded hover:bg-blue-700">สมัครสมาชิก</Link>
        </div>
       </div>
     </div>

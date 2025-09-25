@@ -1,53 +1,45 @@
 // app/dashboard/page.tsx
 'use client';
 
-import AirplaneSeatBooking from "@/components/AirplaneSeatBooking";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import Navbar from "@/components/navbar";
+// app/dashboard/page.tsx
 
-export default function Home2() {
-  const router = useRouter();
+import React from 'react';
 
-  // This is a cleaner way to handle authentication checks.
-  // It will show a loading state and automatically redirect if unauthenticated.
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      // The user is not authenticated, redirect to the Student login page.
-      router.push('/auth/login_Student');
-    },
-  });
-
-  // Show a loading state while the session is being validated
-  if (status === 'loading' || !session) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading session...</p>
-      </div>
-    );
-  }
-  
-  // By this point, you are guaranteed to have a valid session.
+const DashboardPage: React.FC = () => {
   return (
-    <>
-      <div className="w-full min-h-screen m-0 font-sans bg-gray-100">
-        <div className="bg-white shadow">
-          {/* Note: the default session object might not have 'username' */}
-          {/* You might want to use session.user?.name */}
-         
+    <div className="min-h-screen bg-gray-100 p-6">
+      {/* Header */}
+      <header className="bg-white shadow-md rounded-lg p-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+      </header>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card 1 */}
+        <div className="bg-white shadow-md rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-gray-700">Card Title 1</h2>
+          <p className="mt-2 text-gray-600">This is some content for card 1.</p>
         </div>
-        <form>
-          
-        </form>
-        <footer className="w-full shadow-sm bg-neutral-400 dark:bg-gray-900">
-          <div className="w-full max-w-screen-xl p-4 mx-auto md:py-8">
-            <span className="block text-sm text-black-500 sm:text-center dark:text-black-400">
-              © 2025 <a href="http://cosci.swu.ac.th/" className="hover:underline">College Of Social Communication Innovation</a>. All Rights Reserved.
-            </span>
-          </div>
-        </footer>
+
+        {/* Card 2 */}
+        <div className="bg-white shadow-md rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-gray-700">Card Title 2</h2>
+          <p className="mt-2 text-gray-600">This is some content for card 2.</p>
+        </div>
+
+        {/* Card 3 */}
+        <div className="bg-white shadow-md rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-gray-700">Card Title 3</h2>
+          <p className="mt-2 text-gray-600">This is some content for card 3.</p>
+        </div>
       </div>
-    </>
+
+      {/* Footer */}
+      <footer className="bg-white shadow-md rounded-lg p-4 mt-6">
+        <p className="text-center text-gray-500">&copy; 2025 Your Company. All rights reserved.</p>
+      </footer>
+    </div>
   );
-}
+};
+
+export default DashboardPage;
