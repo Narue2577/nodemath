@@ -3,18 +3,18 @@ import { withAuth } from "next-auth/middleware"
 
 export default withAuth(
   function middleware(req) {
-    // Add any additional logic here if needed
+    // Do nothing, just protect routes
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Protect dashboard routes
         if (req.nextUrl.pathname.startsWith("/dashboard")) {
           return !!token
         }
         return true
       },
     },
+    // Do NOT set a custom signIn page here
   }
 )
 

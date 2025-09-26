@@ -1,5 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth"
+import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import mysql from 'mysql2/promise';
 const handler = NextAuth({
@@ -8,10 +9,11 @@ const handler = NextAuth({
       name: "credentials",
       credentials: {
         buasri: { label: "Buasri ID", type: "text" },
-        role: { label: "Role", type: "text" }
+        role: { label: "Role", type: "text" },
+        password:{label: "Password", type: "text"}
       },
       async authorize(credentials) {
-        if (!credentials?.buasri || !credentials?.role) {
+        if (!credentials?.buasri || !credentials?.role || !credentials?.password) {
           return null
         }
 
@@ -24,7 +26,7 @@ const handler = NextAuth({
             });
 
         const [mockUsers] = await connection.execute(
-      'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name FROM student',
+      'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name, staff_buasri AS password FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name , stu_buasri AS password FROM student',
     );
     const mockUsersArray = Object.values(mockUsers);
         // TODO: Replace with your actual authentication logic
@@ -35,7 +37,7 @@ const handler = NextAuth({
        // ]
 
         const user = mockUsersArray.find(
-          u => u.buasri === credentials.buasri && u.role === credentials.role
+          u => u.buasri === credentials.buasri && u.role === credentials.role && u.password === credentials.password
         )
 
         if (user) {
@@ -43,7 +45,8 @@ const handler = NextAuth({
             id: user.id,
             name: user.name,
             buasri: user.buasri, // Using buasri as email for now
-            role: user.role
+            role: user.role,
+            password: user.password
           }
         }
         
@@ -66,8 +69,9 @@ const handler = NextAuth({
     }
   },
   pages: {
-    signIn: '/login',
-  },
+  signIn: '/login', // Your custom login page
+  signOut: '/auth/register', // Your custom sign-out redirect
+},
   session: {
     strategy: 'jwt',
   },
