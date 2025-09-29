@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
 
-/* eslint-disable */
 interface AirplaneSeatBookingProps {
   tableHeader?: string;
 }
@@ -15,10 +14,16 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   const [passengerCount, setPassengerCount] = useState(4);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
-  const [dateTimeInputs, setDateTimeInputs] = useState({});
+  
+  // ⭐ CHANGED: Single datetime input for all seats instead of per-seat
+  const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
+    dateIn: '',
+    dateOut: '',
+    peroidTime: 'choose'
+  });
+  
   const [isLoading, setIsLoading] = useState(false);
   
-  // Sample airplane data with different configurations
   const airplanes = [
     {
       id: 'room601',
@@ -82,7 +87,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   ];
 
-  // Fetch reservations from database with better error handling
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
@@ -93,7 +97,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
 
       if (response.ok) {
         const data = await response.json();
-        // Group reservations by room
         const reservationsByRoom = {};
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
@@ -108,23 +111,19 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         setBookings(reservationsByRoom);
       } else {
         console.warn('Failed to fetch reservations:', response.status);
-        // Don't show error to user for failed fetches, just use empty bookings
       }
     } catch (error) {
       console.error('Error fetching reservations:', error);
-      // Fallback to empty bookings if API is not available
       setBookings({});
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load reservations when component mounts
   useEffect(() => {
     fetchReservations();
   }, []);
 
-  // Generate seat map for an airplane
   const generateSeatMap = (airplane) => {
     const seatMap = [];
     let currentRow = 1;
@@ -159,7 +158,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     return seatMap;
   };
 
-  // Handle seat selection
   const handleSeatClick = (seatId, occupied, unused) => {
     if (occupied || unused) return;
 
@@ -174,29 +172,20 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   };
 
-  // Handle removing a seat from the booking table
+  // ⭐ CHANGED: Remove individual seat from selection
   const handleRemoveSeat = (seatId) => {
     setSelectedSeats(selectedSeats.filter(id => id !== seatId));
-    // Remove datetime inputs for removed seat
-    setDateTimeInputs(prev => {
-      const newInputs = { ...prev };
-      delete newInputs[seatId];
-      return newInputs;
-    });
   };
 
-  // Handle datetime input changes - Fixed validation
-  const handleDateTimeChange = (seatId, field, value) => {
-    setDateTimeInputs(prev => ({
+  // ⭐ CHANGED: Handle bulk datetime changes for all seats
+  const handleBulkDateTimeChange = (field, value) => {
+    setBulkDateTimeInputs(prev => ({
       ...prev,
-      [seatId]: {
-        ...prev[seatId],
-        [field]: value
-      }
+      [field]: value
     }));
   };
 
-  // Improved booking validation and error handling
+  // ⭐ CHANGED: Validate bulk booking data
   const validateBookingData = () => {
     if (selectedSeats.length === 0) {
       return { valid: false, message: 'Please select at least one seat.' };
@@ -206,35 +195,25 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       return { valid: false, message: 'Please select a room.' };
     }
 
-    // Check if all required fields are filled
-    for (const seatId of selectedSeats) {
-      const seatData = dateTimeInputs[seatId];
-      
-      if (!seatData) {
-        return { valid: false, message: `Please fill in all fields for seat ${seatId}.` };
-      }
-      
-      if (!seatData.dateIn || !seatData.dateOut || !seatData.peroidTime || seatData.peroidTime === 'choose') {
-        return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
-      }
+    if (!bulkDateTimeInputs.dateIn || !bulkDateTimeInputs.dateOut || !bulkDateTimeInputs.peroidTime || bulkDateTimeInputs.peroidTime === 'choose') {
+      return { valid: false, message: 'Please complete all date and time fields.' };
+    }
 
-      // Validate dates
-      const dateIn = new Date(seatData.dateIn);
-      const dateOut = new Date(seatData.dateOut);
-      
-      if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
-        return { valid: false, message: `Invalid date format for seat ${seatId}.` };
-      }
-      
-      if (dateOut < dateIn) {
-        return { valid: false, message: `End date must be after start date for seat ${seatId}.` };
-      }
+    const dateIn = new Date(bulkDateTimeInputs.dateIn);
+    const dateOut = new Date(bulkDateTimeInputs.dateOut);
+    
+    if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+      return { valid: false, message: 'Invalid date format.' };
+    }
+    
+    if (dateOut < dateIn) {
+      return { valid: false, message: 'End date must be after start date.' };
     }
 
     return { valid: true };
   };
 
-  // Enhanced booking handler with better error handling
+  // ⭐ CHANGED: Use bulk datetime for all seats in payload
   const handleBooking = async () => {
     const validation = validateBookingData();
     
@@ -245,15 +224,14 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
 
     setIsLoading(true);
 
-    // Create payload with proper structure
     const payload = {
       username: tableHeader || 'DefaultUser',
       room: selectedAirplane.id,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
-        date_in: dateTimeInputs[seatId].dateIn,
-        date_out: dateTimeInputs[seatId].dateOut,
-        peroid_time: dateTimeInputs[seatId].peroidTime,
+        date_in: bulkDateTimeInputs.dateIn,
+        date_out: bulkDateTimeInputs.dateOut,
+        peroid_time: bulkDateTimeInputs.peroidTime,
       })),
     };
 
@@ -278,12 +256,10 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       if (response.ok) {
         alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
         setSelectedSeats([]);
-        setDateTimeInputs({});
+        setBulkDateTimeInputs({ dateIn: '', dateOut: '', peroidTime: 'choose' });
         setShowBookingForm(false);
-        // Refresh reservations after successful booking
         await fetchReservations();
       } else {
-        // Handle specific error cases
         const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
         console.error('Booking failed:', response.status, errorMessage);
         alert(`Booking failed: ${errorMessage}`);
@@ -296,13 +272,34 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   };
 
-  // Reset selections when airplane changes
+  // ⭐ CHANGED: Auto-select all available seats when room changes
   useEffect(() => {
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-  }, [selectedAirplane]);
+    if (selectedAirplane) {
+      // Generate all seats for the selected airplane
+      const allSeats = [];
+      let currentRow = 1;
+      
+      selectedAirplane.layout.forEach((section) => {
+        for (let row = 0; row < section.rows; row++) {
+          const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
+          seatLetters.forEach((letter) => {
+            const seatId = `${currentRow}${letter}`;
+            // Only add if not unused and not occupied
+            if (!selectedAirplane.unused.includes(seatId) && !bookings[selectedAirplane.id]?.includes(seatId)) {
+              allSeats.push(seatId);
+            }
+          });
+          currentRow++;
+        }
+      });
+      
+      setSelectedSeats(allSeats);
+    } else {
+      setSelectedSeats([]);
+    }
+    setBulkDateTimeInputs({ dateIn: '', dateOut: '', peroidTime: 'choose' });
+  }, [selectedAirplane, bookings]);
 
-  // Render seat
   const renderSeat = (seat) => {
     const baseClasses = "w-8 h-8 border-2 flex items-center justify-center text-xs font-medium cursor-pointer transition-all duration-200";
     
@@ -330,7 +327,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   };
 
-  // Render seat row
   const renderSeatRow = (row) => {
     const seatElements = [];
     const seatPattern = row.seatWidth.split('');
@@ -357,7 +353,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   };
 
-  // Enhanced BookingTable component with better validation feedback
+  // ⭐ CHANGED: New bulk booking form with single date/time inputs
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
       <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
@@ -368,6 +364,54 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
       </div>
 
+      {/* ⭐ CHANGED: Bulk date/time inputs for all seats */}
+      <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
+        <h4 className="mb-3 font-semibold text-gray-700">Set Date & Time for All Seats</h4>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Date In</label>
+            <input 
+              type="date" 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.dateIn ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.dateIn}
+              onChange={(e) => handleBulkDateTimeChange('dateIn', e.target.value)}
+              required
+            /> 
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Date Out</label>
+            <input 
+              type="date" 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.dateOut ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.dateOut}
+              onChange={(e) => handleBulkDateTimeChange('dateOut', e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Period Time</label>
+            <select 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.peroidTime || bulkDateTimeInputs.peroidTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.peroidTime}
+              onChange={(e) => handleBulkDateTimeChange('peroidTime', e.target.value)}
+              required
+            >
+              <option value="choose">Choose your time</option>
+              <option value="9:00-12:00">9:00 - 12:00</option>
+              <option value="13:00-16:00">13:00 - 16:00</option>
+              <option value="9:00-16:00">9:00 - 16:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* ⭐ CHANGED: Simplified table showing just seat IDs */}
       <div className="overflow-x-auto">
         <table className="w-full bg-white border border-gray-300 rounded-lg">
           <thead>
@@ -376,95 +420,32 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
                 Seat ID
               </th>
               <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
-                Date In
-              </th>  
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
-                Date Out
-              </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
-                Period Time
-              </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
-                Status
-              </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
                 Action
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {selectedSeats.map((seatId, index) => {
-              const seatData = dateTimeInputs[seatId] || {};
-              const isComplete = seatData.dateIn && seatData.dateOut && seatData.peroidTime && seatData.peroidTime !== 'choose';
-              
-              return (
-                <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    <div className="flex items-center">
-                      <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
-                        <Check className="w-3 h-3" />
-                      </div>
-                      {seatId}
+            {selectedSeats.map((seatId, index) => (
+              <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                  <div className="flex items-center">
+                    <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
+                      <Check className="w-3 h-3" />
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    <input 
-                      type="date" 
-                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        !seatData.dateIn ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
-                      value={seatData.dateIn || ''}
-                      onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
-                      required
-                    /> 
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    <input 
-                      type="date" 
-                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        !seatData.dateOut ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
-                      value={seatData.dateOut || ''}
-                      onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
-                      required
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    <select 
-                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        !seatData.peroidTime || seatData.peroidTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                      }`}
-                      value={seatData.peroidTime || 'choose'}
-                      onChange={(e) => handleDateTimeChange(seatId, 'peroidTime', e.target.value)}
-                      required
-                    >
-                      <option value="choose">Choose your time</option>
-                      <option value="9:00-12:00">9:00 - 12:00</option>
-                      <option value="13:00-16:00">13:00 - 16:00</option>
-                      <option value="9:00-16:00">9:00 - 16:00</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      isComplete 
-                        ? 'text-green-800 bg-green-100' 
-                        : 'text-yellow-800 bg-yellow-100'
-                    }`}>
-                      {isComplete ? 'Ready' : 'Incomplete'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleRemoveSeat(seatId)}
-                      className="text-red-600 transition-colors duration-200 hover:text-red-800"
-                      title="Remove seat"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+                    {seatId}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  <button
+                    onClick={() => handleRemoveSeat(seatId)}
+                    className="text-red-600 transition-colors duration-200 hover:text-red-800"
+                    title="Remove seat"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -498,7 +479,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
         </div>
 
-        {/* Airplane Selection */}
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold text-gray-700">Select Room</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
@@ -524,7 +504,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         </div>
 
-        {/* Passenger Count Selection */}
         {selectedAirplane && (
           <div className="mb-6">
             <h2 className="mb-4 text-xl font-semibold text-gray-700">
@@ -533,7 +512,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         )} 
 
-        {/* Seat Map */}
         {selectedAirplane && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -542,7 +520,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
               </h2>
             </div>
 
-            {/* Legend */}
             <div className="flex justify-center gap-6 mb-6 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-100 border-2 border-green-400"></div>
@@ -562,7 +539,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
               </div>
             </div>
 
-            {/* Seat Map */}
             <div className="p-6 overflow-y-auto bg-gray-100 rounded-lg max-h-96">
               <div className="flex flex-col items-center">
                 {generateSeatMap(selectedAirplane).map(renderSeatRow)}
@@ -571,12 +547,10 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         )}
 
-        {/* Booking Table */}
         {selectedSeats.length > 0 && <BookingTable />}
       </div>
     </div>
   );
 };
 
-// This is the key fix for Next.js deployment
 export default AirplaneSeatBookingAdmin;

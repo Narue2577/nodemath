@@ -3,13 +3,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
+import { useSession } from "next-auth/react";
 
 /* eslint-disable */
 interface AirplaneSeatBookingProps {
   tableHeader?: string;
 }
 
-const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader = "DefaultUser" }) => {
+const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
+  console.log("AirplaneSeatBooking Props:", tableHeader); 
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(4);
@@ -17,8 +19,13 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader =
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const { data: session, status } = useSession();
   
   // Sample airplane data with different configurations
+  if (status === "loading") {
+    return <div>Loading...</div>;
+  }
+   console.log("AirplaneSeatBooking Session:", session);
   const airplanes = [
     {
       id: 'room601',
