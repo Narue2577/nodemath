@@ -1,26 +1,26 @@
 'use client';
 
-
+import AirplaneSeatBooking from "@/components/AirplaneSeatBooking";
 import { useSession} from "next-auth/react";
 import { redirect } from "next/navigation";
-import Navbar from "@/components/navbar";
+import Navbar from "@/app/navbar/page";
 
 export default function DashStudent() {
     const { data: session, status } = useSession();
 
 
     if (status === 'loading') return <p>Loading...</p>;
-    if (!session) return redirect('./auth/login');
+    if (!session) return redirect('./auth/register');
 
     return (
         <>
             <div className="w-full min-h-screen m-0 font-sans bg-gray-100">
                 <div className="bg-white shadow">
-                    <Navbar profile={session.user?.username}></Navbar>
+                    <Navbar></Navbar>
                 </div>
                <form>
-                Student
-                
+                 {/* Form is handled internally by  AirplaneSeatBooking */}
+                <AirplaneSeatBooking tableHeader={session.user?.username} />
                </form>
                 <footer className="w-full shadow-sm bg-neutral-400 dark:bg-gray-900">
                     <div className="w-full max-w-screen-xl p-4 mx-auto md:py-8">
