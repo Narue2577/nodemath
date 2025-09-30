@@ -3,19 +3,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 interface AirplaneSeatBookingProps {
   tableHeader?: string;
 }
 
-const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHeader = "DefaultUser" }) => {
+const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
+  // ⭐ FIXED: Move useSession to top
+  const { data: session, status } = useSession();
+  
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(4);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
   
-  // ⭐ CHANGED: Single datetime input for all seats instead of per-seat
+  // Bulk datetime input for all seats
   const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
     dateIn: '',
     dateOut: '',
@@ -24,6 +28,39 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   
   const [isLoading, setIsLoading] = useState(false);
   
+  // ⭐ FIXED: Get username from session first, then fallback
+  const username = session?.user?.email || session?.user?.name || tableHeader || 'Staff';
+
+  // Loading state
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading authentication...</div>
+      </div>
+    );
+  }
+
+  // Optional: Require authentication for admin
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="p-8 text-center bg-white rounded-lg shadow-lg">
+          <h2 className="mb-4 text-2xl font-bold text-gray-800">Admin Access Required</h2>
+          <p className="mb-6 text-gray-600">Please sign in to access the admin booking system.</p>
+          <button
+            onClick={() => window.location.href = '/api/auth/signin'}
+            className="px-6 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("Admin Session:", session);
+  console.log("Admin Username:", username);
+
   const airplanes = [
     {
       id: 'room601',
@@ -172,12 +209,10 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   };
 
-  // ⭐ CHANGED: Remove individual seat from selection
   const handleRemoveSeat = (seatId) => {
     setSelectedSeats(selectedSeats.filter(id => id !== seatId));
   };
 
-  // ⭐ CHANGED: Handle bulk datetime changes for all seats
   const handleBulkDateTimeChange = (field, value) => {
     setBulkDateTimeInputs(prev => ({
       ...prev,
@@ -185,7 +220,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }));
   };
 
-  // ⭐ CHANGED: Validate bulk booking data
   const validateBookingData = () => {
     if (selectedSeats.length === 0) {
       return { valid: false, message: 'Please select at least one seat.' };
@@ -213,7 +247,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     return { valid: true };
   };
 
-  // ⭐ CHANGED: Use bulk datetime for all seats in payload
   const handleBooking = async () => {
     const validation = validateBookingData();
     
@@ -224,8 +257,9 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
 
     setIsLoading(true);
 
+    // ⭐ FIXED: Now uses session username
     const payload = {
-      username: tableHeader || 'DefaultUser',
+      username: username,
       room: selectedAirplane.id,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
@@ -234,6 +268,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         peroid_time: bulkDateTimeInputs.peroidTime,
       })),
     };
+
+    console.log("Admin booking payload:", payload);
 
     try {
       const response = await fetch('/api/reservations', {
@@ -272,10 +308,9 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   };
 
-  // ⭐ CHANGED: Auto-select all available seats when room changes
+  // Auto-select all available seats when room changes
   useEffect(() => {
     if (selectedAirplane) {
-      // Generate all seats for the selected airplane
       const allSeats = [];
       let currentRow = 1;
       
@@ -284,7 +319,6 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
           seatLetters.forEach((letter) => {
             const seatId = `${currentRow}${letter}`;
-            // Only add if not unused and not occupied
             if (!selectedAirplane.unused.includes(seatId) && !bookings[selectedAirplane.id]?.includes(seatId)) {
               allSeats.push(seatId);
             }
@@ -353,18 +387,21 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   };
 
-  // ⭐ CHANGED: New bulk booking form with single date/time inputs
+  // ⭐ FIXED: BookingTable now uses session username
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
-      <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
+      <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary (Admin)</h3>
       
       <div className="mb-4 text-sm">
-        <p><strong>Username:</strong> {tableHeader || 'DefaultUser'}</p>
+        <p><strong>Admin User:</strong> {username}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
+        {session?.user?.email && (
+          <p><strong>Email:</strong> {session.user.email}</p>
+        )}
       </div>
 
-      {/* ⭐ CHANGED: Bulk date/time inputs for all seats */}
+      {/* Bulk date/time inputs for all seats */}
       <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
         <h4 className="mb-3 font-semibold text-gray-700">Set Date & Time for All Seats</h4>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -411,7 +448,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         </div>
       </div>
 
-      {/* ⭐ CHANGED: Simplified table showing just seat IDs */}
+      {/* Simplified table showing just seat IDs */}
       <div className="overflow-x-auto">
         <table className="w-full bg-white border border-gray-300 rounded-lg">
           <thead>
@@ -475,8 +512,11 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   return (
     <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
       <div className="p-6 bg-white rounded-lg shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Admin: Computer Seat Booking System</h1>
+          <div className="text-sm text-gray-600">
+            Admin: <span className="font-semibold">{username}</span>
+          </div>
         </div>
 
         <div className="mb-8">

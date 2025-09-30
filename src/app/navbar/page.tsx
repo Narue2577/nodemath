@@ -30,7 +30,8 @@ export default function Navbar({ profile }: NavbarProps) {
           </div>
           <div className="hidden sm:flex sm:items-center">
             <a href="/dashboard/student" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
-              {session?.user?.name || profile || 'Username'}
+             {/* {session?.user?.name || profile || 'Username'}*/} 
+             {session?.user?.name || 'Username'}
             </a>
             <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Cancellations</a>

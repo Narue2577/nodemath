@@ -1,4 +1,4 @@
-// src/components/AirplaneSeatBookingAdmin.tsx
+// src/components/AirplaneSeatBooking.tsx
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -7,11 +7,12 @@ import { useSession } from "next-auth/react";
 
 /* eslint-disable */
 interface AirplaneSeatBookingProps {
-  tableHeader?: string;
+  tableHeader?: string; // This can be removed if you only use session
 }
 
 const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
-  console.log("AirplaneSeatBooking Props:", tableHeader); 
+  const { data: session, status } = useSession();
+  
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(4);
@@ -19,13 +20,41 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const { data: session, status } = useSession();
+
+  // Get username from session or fallback to prop
+  const username = session?.user?.email || session?.user?.name || tableHeader || 'Guest';
+
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading authentication...</div>
+      </div>
+    );
+  }
+
+  // Optional: Require authentication
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="p-8 text-center bg-white rounded-lg shadow-lg">
+          <h2 className="mb-4 text-2xl font-bold text-gray-800">Authentication Required</h2>
+          <p className="mb-6 text-gray-600">Please sign in to book seats.</p>
+          <button
+            onClick={() => window.location.href = '/api/auth/signin'}
+            className="px-6 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("Session Data:", session);
+  console.log("Using username:", username);
   
   // Sample airplane data with different configurations
-  if (status === "loading") {
-    return <div>Loading...</div>;
-  }
-   console.log("AirplaneSeatBooking Session:", session);
   const airplanes = [
     {
       id: 'room601',
@@ -252,9 +281,9 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
     setIsLoading(true);
 
-    // Create payload with proper structure
+    // Create payload with proper structure - NOW USES SESSION USERNAME
     const payload = {
-      username: tableHeader || 'DefaultUser',
+      username: username, // Uses session data
       room: selectedAirplane.id,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
@@ -263,6 +292,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         peroid_time: dateTimeInputs[seatId].peroidTime,
       })),
     };
+
+    console.log("Booking payload:", payload);
 
     try {
       const response = await fetch('/api/reservations', {
@@ -370,9 +401,12 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
       
       <div className="mb-4 text-sm">
-        <p><strong>Username:</strong> {tableHeader || 'DefaultUser'}</p>
+        <p><strong>Username:</strong> {username}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
+        {session?.user?.email && (
+          <p><strong>Email:</strong> {session.user.email}</p>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -501,8 +535,11 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   return (
     <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
       <div className="p-6 bg-white rounded-lg shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
+          <div className="text-sm text-gray-600">
+            Logged in as: <span className="font-semibold">{username}</span>
+          </div>
         </div>
 
         {/* Airplane Selection */}
@@ -585,5 +622,4 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   );
 };
 
-// This is the key fix for Next.js deployment
 export default AirplaneSeatBooking;
