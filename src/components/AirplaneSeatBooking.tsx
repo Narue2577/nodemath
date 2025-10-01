@@ -22,8 +22,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const [isLoading, setIsLoading] = useState(false);
 
   // Get username from session or fallback to prop
-  const username = session?.user?.email || session?.user?.name || tableHeader || 'Guest';
-
+  const username =  session?.user?.name || tableHeader || 'Guest';
+  const major = 'Major' || session?.user?.field;
   // Show loading state while checking authentication
   if (status === "loading") {
     return (
@@ -53,6 +53,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
   console.log("Session Data:", session);
   console.log("Using username:", username);
+  console.log('Field:', session?.user?.field);
   
   // Sample airplane data with different configurations
   const airplanes = [
@@ -402,6 +403,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       
       <div className="mb-4 text-sm">
         <p><strong>Username:</strong> {username}</p>
+        <p><strong>Major:</strong>{session?.user?.field || 'Not available'}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
         {session?.user?.email && (

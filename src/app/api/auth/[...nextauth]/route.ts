@@ -26,7 +26,7 @@ const handler = NextAuth({
             });
 
         const [mockUsers] = await connection.execute(
-      'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name, staff_buasri AS password FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name , stu_buasri AS password FROM student',
+      'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name, staff_password AS password,staff_position AS field FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name , stu_password AS password,stu_major AS field FROM student',
     );
     const mockUsersArray = Object.values(mockUsers);
         // TODO: Replace with your actual authentication logic

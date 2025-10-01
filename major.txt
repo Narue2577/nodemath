@@ -1,0 +1,137 @@
+Here's how to properly check and fix `session.user.field` with NextAuth `useSession`:
+
+## 1. **Check Session Status First**
+
+```typescriptreact
+import { useSession } from "next-auth/react";
+
+function YourComponent() {
+  const { data: session, status } = useSession();
+  
+  console.log('Status:', status);
+  console.log('Session:', session);
+  console.log('User:', session?.user);
+  
+  if (status === "loading") {
+    return <p>Loading...</p>;
+  }
+  
+  if (status === "unauthenticated" || !session) {
+    return <p>Please log in</p>;
+  }
+  
+  return (
+    <div>
+      <p><strong>Position:</strong> {session.user?.field || 'N/A'}</p>
+    </div>
+  );
+}
+```
+
+## 2. **Extend NextAuth Types**
+
+Create or update `types/next-auth.d.ts`:
+
+```typescript
+import { DefaultSession } from "next-auth";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      field?: string;
+    } & DefaultSession["user"]
+  }
+  
+  interface User {
+    field?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    field?: string;
+  }
+}
+```
+
+## 3. **Configure NextAuth Callbacks**
+
+In your `[...nextauth].ts` or `route.ts`:
+
+```typescript
+import NextAuth from "next-auth";
+
+export default NextAuth({
+  providers: [
+    // your providers
+  ],
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in
+      if (user) {
+        token.field = user.field;
+      }
+      
+      // Update session
+      if (trigger === "update" && session?.field) {
+        token.field = session.field;
+      }
+      
+      return token;
+    },
+    
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.field = token.field as string;
+      }
+      return session;
+    }
+  }
+});
+```
+
+## 4. **Ensure SessionProvider Wraps Your App**
+
+```typescriptreact
+// app/layout.tsx (App Router)
+import { SessionProvider } from "next-auth/react";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+## 5. **Check Where `field` Comes From**
+
+Make sure `field` is set during sign in:
+
+```typescript
+// In your provider or authorize function
+async authorize(credentials) {
+  const user = await getUserFromDb(credentials);
+  
+  return {
+    id: user.id,
+    email: user.email,
+    field: user.position, // Make sure this exists!
+  };
+}
+```
+
+## Quick Debug Checklist:
+
+1. ✅ Is `SessionProvider` wrapping your component?
+2. ✅ Does `status === "authenticated"`?
+3. ✅ Is `field` being set in the JWT callback?
+4. ✅ Is `field` being passed to session in the session callback?
+5. ✅ Are TypeScript types properly extended?
+
+What's the actual error or behavior you're seeing?

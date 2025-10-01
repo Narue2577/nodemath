@@ -29,7 +29,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   const [isLoading, setIsLoading] = useState(false);
   
   // ⭐ FIXED: Get username from session first, then fallback
-  const username = session?.user?.email || session?.user?.name || tableHeader || 'Staff';
+  const username =  session?.user?.name || tableHeader || 'Staff';
+  const position =  "Staff" || session?.user?.field;
 
   // Loading state
   if (status === "loading") {
@@ -393,7 +394,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary (Admin)</h3>
       
       <div className="mb-4 text-sm">
-        <p><strong>Admin User:</strong> {username}</p>
+        <p><strong>Staff Name:</strong> {username}</p>
+        <p><strong>Position:</strong>{session.user.field}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
         {session?.user?.email && (

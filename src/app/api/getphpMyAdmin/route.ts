@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     let get_exp_query = ''
 
-    get_exp_query =  'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name, staff_buasri AS password FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name , stu_buasri AS password FROM student'
+    get_exp_query =  'SELECT staff_id AS id, staff_buasri AS buasri, "teacher" AS role, staff_name AS name, staff_password AS password,staff_position AS field FROM staff WHERE staff_buasri !="NULL" UNION SELECT stu_id, stu_buasri, "student" AS role,stu_name , stu_password AS password,stu_major AS field FROM student'
 /*SELECT buasri FROM (SELECT staff_buasri AS buasri FROM staff UNION SELECT stu_buasri AS buasri FROM student) AS combined WHERE buasri LIKE "co%";  AND staff_buasri NOT LIKE "co%" */
 /*SELECT staff_buasri AS buasri FROM staff WHERE staff_buasri REGEXP '^co[0-9]+$'
 UNION
