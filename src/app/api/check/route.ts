@@ -1,13 +1,14 @@
+//api/check/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
 export async function GET(request: Request) {
   try {
     const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      host: 'localhost',
+          user: 'root',
+          password: 'Ertnom35!',
+          database: 'nodelogin'
     });
 
     // Fetch all active (occupied) reservations for the specific username
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
 
     // Execute the query with the username parameter
     const [reservations] = await connection.execute(selectQuery, [username]);
+    console.log('Database Query Result:', reservations);
     connection.end();
 
     // Ensure `reservations` is an array
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
       date_in: post.date_in ? new Date(post.date_in).toISOString().split('T')[0] : "N/A",
       date_out: post.date_out ? new Date(post.date_out).toISOString().split('T')[0] : "N/A"
     }));
-
+    console.log('Formatted Reservations:', formattedReservations);
     return NextResponse.json({ reservations: formattedReservations });
   } catch (err) {
     console.error('Database error:', err);

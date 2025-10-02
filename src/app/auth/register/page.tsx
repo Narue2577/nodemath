@@ -25,49 +25,61 @@ export default function LoginStudentPage() {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!buasri || !password) {
-      setError('Please fill in all fields.');
+  if (!buasri || !password) {
+    setError('Please fill in all fields.');
+    return;
+  }
+
+  setIsPending(true);
+  setError('');
+
+  try {
+    const result = await signIn('credentials', {
+      buasri,
+      role,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError('Invalid credentials. Please try again.');
+      setIsPending(false);
       return;
     }
 
-    setIsPending(true);
-    setError('');
-
-    try {
-      const result = await signIn('credentials', {
-        buasri,
-        role,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError('Invalid credentials. Please try again.');
+    // Add a small delay to ensure session is updated
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Get fresh session
+    const session = await getSession();
+    console.log('Session after login:', session); // Debug log
+    
+    if (session?.user) {
+      const userRole = (session.user as any).role;
+      
+      // Redirect based on role
+      if (userRole === 'teacher') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'student') {
+        router.push('/dashboard/student');
       } else {
-        // Get the session to check user role and redirect accordingly
-        const session = await getSession();
-        if (session?.user) {
-          const userRole = (session.user as any).role;
-          
-          // Redirect based on role
-          if (userRole === 'student') {
-            router.push('/dashboard/student');
-          } else if (userRole === 'teacher') {
-            router.push('/dashboard/admin');
-          }
-        }
+        // Fallback if role is undefined
+        setError('User role not found. Please contact administrator.');
+        setIsPending(false);
       }
-    } catch (error) {
-      setError('An error occurred during login.');
-      console.error('Login error:', error);
-    } finally {
+    } else {
+      setError('Failed to retrieve session. Please try again.');
       setIsPending(false);
     }
-  };
-
+  } catch (error) {
+    setError('An error occurred during login.');
+    console.error('Login error:', error);
+    setIsPending(false);
+  }
+};
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-lg p-6 bg-white rounded-lg shadow-lg">　

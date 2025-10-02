@@ -23,7 +23,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
   // Get username from session or fallback to prop
   const username =  session?.user?.name || tableHeader || 'Guest';
-  const major = 'Major' || session?.user?.field;
+  const major = session?.user?.field || 'Not specified';
   // Show loading state while checking authentication
   if (status === "loading") {
     return (
@@ -285,6 +285,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
     // Create payload with proper structure - NOW USES SESSION USERNAME
     const payload = {
       username: username, // Uses session data
+      major:major,
       room: selectedAirplane.id,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
@@ -403,7 +404,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       
       <div className="mb-4 text-sm">
         <p><strong>Username:</strong> {username}</p>
-        <p><strong>Major:</strong>{session?.user?.field || 'Not available'}</p>
+        <p><strong>Major:</strong> {major}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
         {session?.user?.email && (
@@ -539,9 +540,9 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       <div className="p-6 bg-white rounded-lg shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
-          <div className="text-sm text-gray-600">
+         {/* <div className="text-sm text-gray-600">
             Logged in as: <span className="font-semibold">{username}</span>
-          </div>
+          </div>*/}
         </div>
 
         {/* Airplane Selection */}

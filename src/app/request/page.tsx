@@ -2,18 +2,18 @@
 "use client";
 
 import { redirect } from "next/navigation";
-import Navbar from "@/components/navbar";
+import Navbar from "../navbar/page";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from 'react';
 
 export default function Request() {
-  const [posts, setPosts] = useState([]);
   const { data: session, status } = useSession();
+  const [posts, setPosts] = useState([]);
+  
 
-  // Enhanced cancelBooking handler with better debugging
 const cancelBooking = async (room, seat) => {
   try {
-    console.log('Attempting to cancel reservation for:', { username: session.user.username, room, seat });
+    console.log('Attempting to cancel reservation for:', { username: session.user.buasri, room, seat });
     
     const response = await fetch(`/api/delete`, {
       method: 'PUT',
@@ -21,7 +21,7 @@ const cancelBooking = async (room, seat) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ 
-        username: session.user.username, 
+        username: session.user.buasri, // Use buasri instead of username
         room, 
         seat 
       }),
@@ -31,7 +31,6 @@ const cancelBooking = async (room, seat) => {
     console.log('Server response:', responseData);
 
     if (response.ok) {
-        // Remove the deleted reservation from the UI
         setPosts((prevPosts) =>
           prevPosts.filter(
             post => 
@@ -51,27 +50,30 @@ const cancelBooking = async (room, seat) => {
 };
 
   // Fetch data on component mount
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        if (session?.user?.username) {
-          const res = await fetch(`/api/check?username=${session.user.username}`);
-          const data = await res.json();
 
-          if (Array.isArray(data.reservations)) {
-            setPosts(data.reservations);
-          } else {
-            console.error('Invalid response format:', data);
-            setPosts([]);
-          }
+  useEffect(() => {
+    console.log('Session:', session);
+  async function fetchData() {
+    try {
+      if (session?.user?.buasri) { // Use buasri instead of username
+        const res = await fetch(`/api/check?username=${encodeURIComponent(session.user.buasri)}`);
+        const data = await res.json();
+        console.log('API Response:', data);
+
+        if (Array.isArray(data.reservations)) {
+          setPosts(data.reservations);
+        } else {
+          console.error('Invalid response format:', data);
+          setPosts([]);
         }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setPosts([]);
       }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setPosts([]);
     }
-    fetchData();
-  }, [session]);
+  }
+  fetchData();
+}, [session]);
 
   if (status === 'loading') return <p>Loading...</p>;
   if (!session) return redirect('./auth/login');

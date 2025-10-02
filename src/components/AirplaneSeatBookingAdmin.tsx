@@ -30,7 +30,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   
   // ⭐ FIXED: Get username from session first, then fallback
   const username =  session?.user?.name || tableHeader || 'Staff';
-  const position =  "Staff" || session?.user?.field;
+  const position =  session?.user?.field || 'Not specified';
 
   // Loading state
   if (status === "loading") {
@@ -261,6 +261,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     // ⭐ FIXED: Now uses session username
     const payload = {
       username: username,
+      major:position,
       room: selectedAirplane.id,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
@@ -395,7 +396,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       
       <div className="mb-4 text-sm">
         <p><strong>Staff Name:</strong> {username}</p>
-        <p><strong>Position:</strong>{session.user.field}</p>
+        <p><strong>Major:</strong> {position}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
         {session?.user?.email && (
@@ -515,10 +516,10 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
       <div className="p-6 bg-white rounded-lg shadow-lg">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Admin: Computer Seat Booking System</h1>
-          <div className="text-sm text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
+          {/*<div className="text-sm text-gray-600">
             Admin: <span className="font-semibold">{username}</span>
-          </div>
+          </div>*/}
         </div>
 
         <div className="mb-8">

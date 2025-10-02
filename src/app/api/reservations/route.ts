@@ -1,10 +1,10 @@
-//api/reservstions/route.ts
+//api/reservations/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
-
 // Helper function to check and update expired reservations
-/* eslint-disable */async function updateExpiredReservations(connection: any) {
+/* eslint-disable */
+async function updateExpiredReservations(connection: any) {
   const currentDateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
   
   // Query to find reservations that are past their end date/time
@@ -19,6 +19,7 @@ import mysql from 'mysql2/promise';
   await connection.execute(query, [currentDateTime]);
 }
 /* eslint-disable */
+
 // GET method with auto-update for expired reservations
 export async function GET(request: Request) {
   try {
@@ -32,9 +33,9 @@ export async function GET(request: Request) {
     // First, update any expired reservations
     await updateExpiredReservations(connection);
 
-    // Then fetch all active (occupied) reservations
+    // ⭐ UPDATED: Now also fetches major field
     const selectQuery = `
-      SELECT room, seat, status FROM nodelogin.stud_reserv 
+      SELECT room, seat, status, major FROM nodelogin.stud_reserv 
       WHERE status = 'occupied'
     `;
 
@@ -61,7 +62,16 @@ export async function POST(request: Request) {
     // First, update any expired reservations
     await updateExpiredReservations(connection);
 
-    const { username, room, seats } = await request.json();
+    // ⭐ UPDATED: Now extracts major field from request
+    const { username, major, room, seats } = await request.json();
+
+    // Validation: Check if required fields are present
+    if (!username || !major || !room || !seats || !Array.isArray(seats)) {
+      connection.end();
+      return NextResponse.json({ 
+        error: 'Missing required fields: username, major, room, and seats are required' 
+      }, { status: 400 });
+    }
 
     // Check if any seats are already occupied
     const seatIds = seats.map((s: any) => s.seat);
@@ -80,27 +90,31 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Insert new reservations
+    // ⭐ UPDATED: Insert query now includes major field
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
-      (username, room, seat, date_in, date_out, peroid_time, status, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      (username, major, room, seat, date_in, date_out, peroid_time, status, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     for (const seat of seats) {
       await connection.execute(insertQuery, [
         username,
+        major, // ⭐ ADD THIS - Insert major field
         room,
         seat.seat,
         seat.date_in,
         seat.date_out,
-        seat.peroid_time || '9:00-12:00', // Default period time if not provided
+        seat.peroid_time || '9:00-12:00',
         seat.status || 'occupied'
       ]);
     }
 
     connection.end();
-    return NextResponse.json({ message: 'Reservations created successfully' });
+    return NextResponse.json({ 
+      message: 'Reservations created successfully',
+      count: seats.length 
+    });
   } catch (err) {
     console.error('Database error:', err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -120,11 +134,15 @@ export async function PUT(request: Request) {
     // First, update any expired reservations
     await updateExpiredReservations(connection);
 
-    const { username, room, seat, date_in, date_out, peroid_time, status } = await request.json();
+    // ⭐ UPDATED: Now extracts major field
+    const { username, major, room, seat, date_in, date_out, peroid_time, status } = await request.json();
 
-    if (!username || !room || !seat || !date_in || !date_out || !peroid_time || !status) {
+    // ⭐ UPDATED: Validation includes major
+    if (!username || !major || !room || !seat || !date_in || !date_out || !peroid_time || !status) {
       connection.end();
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ 
+        error: 'Missing required fields: username, major, room, seat, date_in, date_out, peroid_time, and status are required' 
+      }, { status: 400 });
     }
 
     // Check if the reservation exists
@@ -140,14 +158,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // Update the reservation
+    // ⭐ UPDATED: Update query now includes major field
     const updateQuery = `
       UPDATE nodelogin.stud_reserv 
-      SET date_in = ?, date_out = ?, peroid_time = ?, status = ?
+      SET major = ?, date_in = ?, date_out = ?, peroid_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
     await connection.execute(updateQuery, [
+      major, // ⭐ ADD THIS - Update major field
       date_in,
       date_out,
       peroid_time,

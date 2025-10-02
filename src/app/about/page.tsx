@@ -1,7 +1,7 @@
 "use client"
 
 import { redirect } from "next/navigation";
-import Navbar from "@/components/navbar";
+import Navbar from "../navbar/page";
 import { useSession } from "next-auth/react";
 
 

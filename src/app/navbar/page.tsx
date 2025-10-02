@@ -1,5 +1,6 @@
+//app/navbar/page.tsx
 'use client';
-
+/* eslint-disable */
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 
@@ -9,13 +10,17 @@ interface NavbarProps {
 
 export default function Navbar({ profile }: NavbarProps) {
   const { data: session, status } = useSession();
-
+  
   if (status === "loading") {
     return <div>Loading...</div>;
   }
-
+  
   console.log("Navbar Session:", session); // Debugging
-
+  
+  // Get user role to determine correct dashboard link
+  const userRole = (session?.user as any)?.role;
+  const dashboardLink = userRole === 'teacher' ? '/dashboard/admin' : '/dashboard/student';
+  
   return (
     <>
       <div className="container px-4 mx-auto">
@@ -29,30 +34,33 @@ export default function Navbar({ profile }: NavbarProps) {
             />
           </div>
           <div className="hidden sm:flex sm:items-center">
-            <a href="/dashboard/student" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
-             {/* {session?.user?.name || profile || 'Username'}*/} 
-             {session?.user?.name || 'Username'}
+            {/* ✅ FIXED: Dynamic dashboard link based on role */}
+            <a href={dashboardLink} className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
+              {session?.user?.name || 'Username'}
             </a>
             <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Cancellations</a>
-            <a
+           
+           <a 
               href="#"
-              onClick={() => signOut({ callbackUrl: '/auth/register' })}
+              onClick={() => signOut({ callbackUrl: '/auth/login' })}
               className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600"
             >
               Logout
             </a>
           </div>
         </div>
-
+        
         <div className="block py-2 bg-white border-t-2 sm:hidden">
           <div className="flex flex-col">
-            <a href="/dashboard" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
+            {/* ✅ FIXED: Dynamic dashboard link for mobile */}
+            <a href={dashboardLink} className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
               {session?.user?.name || profile || 'Username'}
             </a>
-            <a href="" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
+            <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Request</a>
-            <a
+
+            < a
               href="#"
               onClick={() => signOut({ callbackUrl: '/auth/register' })}
               className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600"
@@ -64,4 +72,4 @@ export default function Navbar({ profile }: NavbarProps) {
       </div>
     </>
   );
-};
+}
