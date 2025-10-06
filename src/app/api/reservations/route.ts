@@ -5,25 +5,65 @@ import mysql from 'mysql2/promise';
 // Helper function to check and update expired reservations
 /* eslint-disable */
 async function updateExpiredReservations(connection: any) {
-  const currentDateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  
-  // Query to find reservations that are past their end date/time
-  const query = `
-    UPDATE nodelogin.stud_reserv 
-    SET status = 'complete' 
-    WHERE (status = 'occupied') AND (
-      CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < ?
-    )
-  `;
+  try {
+    console.log('\n=== Checking for expired reservations ===');
+    console.log('Current time:', new Date().toISOString());
+    
+    // First, let's see what we're working with
+    const [occupiedRows]: any = await connection.execute(`
+      SELECT 
+        id,
+        username,
+        room,
+        seat,
+        date_out,
+        peroid_time,
+        status,
+        CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) as end_datetime,
+        NOW() as current_time,
+        CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW() as is_expired
+      FROM nodelogin.stud_reserv 
+      WHERE status = 'occupied'
+      LIMIT 5
+    `);
+    
+    console.log('Sample occupied reservations:', occupiedRows);
+    
+    // Count how many should be expired
+    const [countResult]: any = await connection.execute(`
+      SELECT COUNT(*) as count
+      FROM nodelogin.stud_reserv 
+      WHERE status = 'occupied' 
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW()
+    `);
+    
+    console.log('Reservations to expire:', countResult[0].count);
+    
+    // Perform the update using MySQL's NOW() instead of JavaScript date
+    const query = `
+      UPDATE nodelogin.stud_reserv 
+      SET status = 'complete', updated_at = NOW()
+      WHERE status = 'occupied' 
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW()
+    `; 
 
-  await connection.execute(query, [currentDateTime]);
+    const [result]: any = await connection.execute(query);
+    console.log('Update result - Rows affected:', result.affectedRows);
+    console.log('=== Expiry check complete ===\n');
+    
+    return result.affectedRows;
+  } catch (error) {
+    console.error('Error in updateExpiredReservations:', error);
+    return 0;
+  }
 }
-/* eslint-disable */
+/* eslint-enable */
 
 // GET method with auto-update for expired reservations
 export async function GET(request: Request) {
+  let connection;
   try {
-    const connection = await mysql.createConnection({
+    connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
@@ -31,7 +71,8 @@ export async function GET(request: Request) {
     });
 
     // First, update any expired reservations
-    await updateExpiredReservations(connection);
+    const expiredCount = await updateExpiredReservations(connection);
+    console.log(`GET: Updated ${expiredCount} expired reservations`);
 
     // ⭐ UPDATED: Now also fetches major field
     const selectQuery = `
@@ -40,19 +81,24 @@ export async function GET(request: Request) {
     `;
 
     const [reservations] = await connection.execute(selectQuery);
-    connection.end();
+    await connection.end();
 
-    return NextResponse.json({ reservations });
+    return NextResponse.json({ 
+      reservations,
+      expiredUpdated: expiredCount 
+    });
   } catch (err) {
     console.error('Database error:', err);
+    if (connection) await connection.end();
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
 
 // POST method with auto-update for expired reservations
 export async function POST(request: Request) {
+  let connection;
   try {
-    const connection = await mysql.createConnection({
+    connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
@@ -60,14 +106,15 @@ export async function POST(request: Request) {
     });
 
     // First, update any expired reservations
-    await updateExpiredReservations(connection);
+    const expiredCount = await updateExpiredReservations(connection);
+    console.log(`POST: Updated ${expiredCount} expired reservations`);
 
     // ⭐ UPDATED: Now extracts major field from request
     const { username, major, room, seats } = await request.json();
 
     // Validation: Check if required fields are present
     if (!username || !major || !room || !seats || !Array.isArray(seats)) {
-      connection.end();
+      await connection.end();
       return NextResponse.json({ 
         error: 'Missing required fields: username, major, room, and seats are required' 
       }, { status: 400 });
@@ -83,14 +130,14 @@ export async function POST(request: Request) {
     const [existingSeats] = await connection.execute(checkQuery, [room, ...seatIds]);
 
     if ((existingSeats as any[]).length > 0) {
-      connection.end();
+      await connection.end();
       return NextResponse.json({
         error: 'Some seats are already occupied',
         occupiedSeats: (existingSeats as any[]).map(row => row.seat)
       }, { status: 400 });
     }
 
-    // ⭐ UPDATED: Insert query now includes major field
+    
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
       (username, major, room, seat, date_in, date_out, peroid_time, status, created_at, updated_at) 
@@ -110,21 +157,24 @@ export async function POST(request: Request) {
       ]);
     }
 
-    connection.end();
+    await connection.end();
     return NextResponse.json({ 
       message: 'Reservations created successfully',
-      count: seats.length 
+      count: seats.length,
+      expiredUpdated: expiredCount
     });
   } catch (err) {
     console.error('Database error:', err);
+    if (connection) await connection.end();
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
 
 // PUT method with auto-update for expired reservations
 export async function PUT(request: Request) {
+  let connection;
   try {
-    const connection = await mysql.createConnection({
+    connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
@@ -132,14 +182,15 @@ export async function PUT(request: Request) {
     });
 
     // First, update any expired reservations
-    await updateExpiredReservations(connection);
+    const expiredCount = await updateExpiredReservations(connection);
+    console.log(`PUT: Updated ${expiredCount} expired reservations`);
 
-    // ⭐ UPDATED: Now extracts major field
+ 
     const { username, major, room, seat, date_in, date_out, peroid_time, status } = await request.json();
 
-    // ⭐ UPDATED: Validation includes major
+   
     if (!username || !major || !room || !seat || !date_in || !date_out || !peroid_time || !status) {
-      connection.end();
+      await connection.end();
       return NextResponse.json({ 
         error: 'Missing required fields: username, major, room, seat, date_in, date_out, peroid_time, and status are required' 
       }, { status: 400 });
@@ -154,11 +205,11 @@ export async function PUT(request: Request) {
     const [existingReservation] = await connection.execute(checkQuery, [username, room, seat]);
 
     if (!(existingReservation as any[]).length) {
-      connection.end();
+      await connection.end();
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // ⭐ UPDATED: Update query now includes major field
+    
     const updateQuery = `
       UPDATE nodelogin.stud_reserv 
       SET major = ?, date_in = ?, date_out = ?, peroid_time = ?, status = ?, updated_at = NOW()
@@ -166,7 +217,7 @@ export async function PUT(request: Request) {
     `;
 
     await connection.execute(updateQuery, [
-      major, // ⭐ ADD THIS - Update major field
+      major,
       date_in,
       date_out,
       peroid_time,
@@ -176,10 +227,14 @@ export async function PUT(request: Request) {
       seat
     ]);
 
-    connection.end();
-    return NextResponse.json({ message: 'Reservation updated successfully' });
+    await connection.end();
+    return NextResponse.json({ 
+      message: 'Reservation updated successfully',
+      expiredUpdated: expiredCount
+    });
   } catch (err) {
     console.error('Database error:', err);
+    if (connection) await connection.end();
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

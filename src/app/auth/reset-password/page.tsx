@@ -71,7 +71,7 @@ const PasswordPage: React.FC = () => {
        
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            
+            {/*<div>{session?.user.name}</div> */}
             <input
               type="text"
               value={password}

@@ -14,47 +14,47 @@ const LoginPage: React.FC = () => {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!buasri) {
-      setError('Please fill in all fields.');
-      return;
-    }
+  if (!buasri) {
+    setError('Please fill in all fields.');
+    return;
+  }
 
-    setIsPending(true);
-    setError('');
+  setIsPending(true);
+  setError('');
 
-    try {
-      const result = await signIn('credentials', {
-        buasri,
-        role,
-        redirect: false,
-      });
+  try {
+    const result = await signIn('credentials', {
+      buasri,
+      role,
+      redirect: false,
+    });
 
-      if (result?.error) {
-        setError('Invalid credentials. Please try again.');
-      } else {
-        // Get the session to check user role and redirect accordingly
-        const session = await getSession();
-        if (session?.user) {
-          const userRole = (session.user as any).role;
-          
-          // Redirect based on role
-          if (userRole === 'student') {
-            router.push('/dashboard/student');
-          } else if (userRole === 'teacher') {
-            router.push('/dashboard/admin');
-          }
+    if (result?.error) {
+      setError('Invalid credentials. Please try again.');
+      // Optional: redirect to reset password after failed login
+       setTimeout(() => router.push('/auth/reset-password'), 2000);
+    } else {
+      const session = await getSession();
+      if (session?.user) {
+        const userRole = (session.user as any).role;
+        
+        if (userRole === 'student') {
+          router.push('/dashboard/student');
+        } else if (userRole === 'teacher') {
+          router.push('/dashboard/admin');
         }
       }
-    } catch (error) {
-      setError('An error occurred during login.');
-      console.error('Login error:', error);
-    } finally {
-      setIsPending(false);
     }
-  };
+  } catch (error) {
+    setError('An error occurred during login.');
+    console.error('Login error:', error);
+  } finally {
+    setIsPending(false);
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -115,7 +115,7 @@ const LoginPage: React.FC = () => {
 
           {/* Login Button */}
           <button
-            type="submit"
+            type="submit" 
             className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
             disabled={isPending}
           >
