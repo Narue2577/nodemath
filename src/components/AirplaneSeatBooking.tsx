@@ -251,7 +251,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         return { valid: false, message: `Please fill in all fields for seat ${seatId}.` };
       }
       
-      if (!seatData.dateIn || !seatData.dateOut || !seatData.peroidTime || seatData.peroidTime === 'choose') {
+      if (!seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
         return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
       }
 
@@ -291,7 +291,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         seat: seatId,
         date_in: dateTimeInputs[seatId].dateIn,
         date_out: dateTimeInputs[seatId].dateOut,
-        peroid_time: dateTimeInputs[seatId].peroidTime,
+        period_time: dateTimeInputs[seatId].periodTime,
       })),
     };
 
@@ -439,7 +439,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
           <tbody className="bg-white divide-y divide-gray-200">
             {selectedSeats.map((seatId, index) => {
               const seatData = dateTimeInputs[seatId] || {};
-              const isComplete = seatData.dateIn && seatData.dateOut && seatData.peroidTime && seatData.peroidTime !== 'choose';
+              const isComplete = seatData.dateIn && seatData.dateOut && seatData.periodTime && seatData.periodTime !== 'choose';
               
               return (
                 <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
@@ -476,10 +476,10 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
                   <td className="px-4 py-3 text-sm text-gray-900">
                     <select 
                       className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        !seatData.peroidTime || seatData.peroidTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        !seatData.periodTime || seatData.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
-                      value={seatData.peroidTime || 'choose'}
-                      onChange={(e) => handleDateTimeChange(seatId, 'peroidTime', e.target.value)}
+                      value={seatData.periodTime || 'choose'}
+                      onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
                       required
                     >
                       <option value="choose">Choose your time</option>

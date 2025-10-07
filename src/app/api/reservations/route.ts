@@ -17,11 +17,11 @@ async function updateExpiredReservations(connection: any) {
         room,
         seat,
         date_out,
-        peroid_time,
+        period_time,
         status,
-        CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) as end_datetime,
+        CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
         NOW() as current_time,
-        CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW() as is_expired
+        CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
       FROM nodelogin.stud_reserv 
       WHERE status = 'occupied'
       LIMIT 5
@@ -34,17 +34,20 @@ async function updateExpiredReservations(connection: any) {
       SELECT COUNT(*) as count
       FROM nodelogin.stud_reserv 
       WHERE status = 'occupied' 
-      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW()
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
     
     console.log('Reservations to expire:', countResult[0].count);
     
-    // Perform the update using MySQL's NOW() instead of JavaScript date
+    // ⭐ FIXED: Added ':00' for seconds to make proper datetime comparison
+    // The issue was that period_time is '9:00-12:00' format (HH:MM)
+    // But MySQL NOW() returns 'YYYY-MM-DD HH:MM:SS' format
+    // So we need to add ':00' for seconds to match the format
     const query = `
       UPDATE nodelogin.stud_reserv 
       SET status = 'complete', updated_at = NOW()
       WHERE status = 'occupied' 
-      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(peroid_time, '-', -1)) < NOW()
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `; 
 
     const [result]: any = await connection.execute(query);
@@ -74,7 +77,6 @@ export async function GET(request: Request) {
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`GET: Updated ${expiredCount} expired reservations`);
 
-    // ⭐ UPDATED: Now also fetches major field
     const selectQuery = `
       SELECT room, seat, status, major FROM nodelogin.stud_reserv 
       WHERE status = 'occupied'
@@ -109,7 +111,6 @@ export async function POST(request: Request) {
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`POST: Updated ${expiredCount} expired reservations`);
 
-    // ⭐ UPDATED: Now extracts major field from request
     const { username, major, room, seats } = await request.json();
 
     // Validation: Check if required fields are present
@@ -137,22 +138,21 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
-      (username, major, room, seat, date_in, date_out, peroid_time, status, created_at, updated_at) 
+      (username, major, room, seat, date_in, date_out, period_time, status, created_at, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     for (const seat of seats) {
       await connection.execute(insertQuery, [
         username,
-        major, // ⭐ ADD THIS - Insert major field
+        major,
         room,
         seat.seat,
         seat.date_in,
         seat.date_out,
-        seat.peroid_time || '9:00-12:00',
+        seat.period_time || '9:00-12:00',
         seat.status || 'occupied'
       ]);
     }
@@ -185,14 +185,12 @@ export async function PUT(request: Request) {
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`PUT: Updated ${expiredCount} expired reservations`);
 
- 
-    const { username, major, room, seat, date_in, date_out, peroid_time, status } = await request.json();
+    const { username, major, room, seat, date_in, date_out, period_time, status } = await request.json();
 
-   
-    if (!username || !major || !room || !seat || !date_in || !date_out || !peroid_time || !status) {
+    if (!username || !major || !room || !seat || !date_in || !date_out || !period_time || !status) {
       await connection.end();
       return NextResponse.json({ 
-        error: 'Missing required fields: username, major, room, seat, date_in, date_out, peroid_time, and status are required' 
+        error: 'Missing required fields: username, major, room, seat, date_in, date_out, period_time, and status are required' 
       }, { status: 400 });
     }
 
@@ -209,10 +207,9 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    
     const updateQuery = `
       UPDATE nodelogin.stud_reserv 
-      SET major = ?, date_in = ?, date_out = ?, peroid_time = ?, status = ?, updated_at = NOW()
+      SET major = ?, date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
@@ -220,7 +217,7 @@ export async function PUT(request: Request) {
       major,
       date_in,
       date_out,
-      peroid_time,
+      period_time,
       status,
       username,
       room,

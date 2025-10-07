@@ -23,7 +23,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
     dateIn: '',
     dateOut: '',
-    peroidTime: 'choose'
+    periodTime: 'choose'
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -230,7 +230,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       return { valid: false, message: 'Please select a room.' };
     }
 
-    if (!bulkDateTimeInputs.dateIn || !bulkDateTimeInputs.dateOut || !bulkDateTimeInputs.peroidTime || bulkDateTimeInputs.peroidTime === 'choose') {
+    if (!bulkDateTimeInputs.dateIn || !bulkDateTimeInputs.dateOut || !bulkDateTimeInputs.periodTime || bulkDateTimeInputs.periodTime === 'choose') {
       return { valid: false, message: 'Please complete all date and time fields.' };
     }
 
@@ -267,7 +267,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         seat: seatId,
         date_in: bulkDateTimeInputs.dateIn,
         date_out: bulkDateTimeInputs.dateOut,
-        peroid_time: bulkDateTimeInputs.peroidTime,
+        period_time: bulkDateTimeInputs.periodTime,
       })),
     };
 
@@ -294,7 +294,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       if (response.ok) {
         alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
         setSelectedSeats([]);
-        setBulkDateTimeInputs({ dateIn: '', dateOut: '', peroidTime: 'choose' });
+        setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
         setShowBookingForm(false);
         await fetchReservations();
       } else {
@@ -333,7 +333,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     } else {
       setSelectedSeats([]);
     }
-    setBulkDateTimeInputs({ dateIn: '', dateOut: '', peroidTime: 'choose' });
+    setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
   }, [selectedAirplane, bookings]);
 
   const renderSeat = (seat) => {
@@ -436,10 +436,10 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
             <label className="block mb-1 text-sm font-medium text-gray-700">Period Time</label>
             <select 
               className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                !bulkDateTimeInputs.peroidTime || bulkDateTimeInputs.peroidTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                !bulkDateTimeInputs.periodTime || bulkDateTimeInputs.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
               }`}
-              value={bulkDateTimeInputs.peroidTime}
-              onChange={(e) => handleBulkDateTimeChange('peroidTime', e.target.value)}
+              value={bulkDateTimeInputs.periodTime}
+              onChange={(e) => handleBulkDateTimeChange('periodTime', e.target.value)}
               required
             >
               <option value="choose">Choose your time</option>

@@ -2,6 +2,30 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
+// ⭐ ADDED: Helper function to update expired reservations
+async function updateExpiredReservations(connection: any) {
+  try {
+    console.log('Checking for expired reservations...');
+    
+    const query = `
+      UPDATE nodelogin.stud_reserv 
+      SET status = 'complete', updated_at = NOW()
+      WHERE status = 'occupied' 
+      AND STR_TO_DATE(
+        CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00'),
+        '%Y-%m-%d %H:%i:%s'
+      ) < NOW()
+    `;
+
+    const [result]: any = await connection.execute(query);
+    console.log('Expired reservations updated:', result.affectedRows);
+    return result.affectedRows;
+  } catch (error) {
+    console.error('Error updating expired reservations:', error);
+    return 0;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const connection = await mysql.createConnection({
@@ -10,6 +34,9 @@ export async function GET(request: Request) {
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME
     });
+
+    // ⭐ ADDED: Update expired reservations before fetching
+    await updateExpiredReservations(connection);
 
     // Extract username from query parameters
     const { searchParams } = new URL(request.url);
@@ -22,9 +49,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
     }
 
-    // Include id field (auto-increment from database)
+    // ⭐ FIXED: Changed peroid_time to period_time (was misspelled)
     const selectQuery = `
-      SELECT id, room, seat, date_in, date_out, peroid_time, status
+      SELECT id, room, seat, date_in, date_out, period_time, status
       FROM nodelogin.stud_reserv 
       WHERE username = ? AND status = 'occupied'
       ORDER BY created_at DESC
@@ -49,7 +76,7 @@ export async function GET(request: Request) {
       seat: post.seat,
       date_in: post.date_in ? new Date(post.date_in).toISOString().split('T')[0] : "N/A",
       date_out: post.date_out ? new Date(post.date_out).toISOString().split('T')[0] : "N/A",
-      peroid_time: post.peroid_time,
+      period_time: post.period_time, // ⭐ FIXED: Changed from peroid_time to period_time
       status: post.status
     }));
 
@@ -75,9 +102,13 @@ export async function PUT(request: Request) {
       database: process.env.DB_NAME
     });
 
-    const { username, room, seat, date_in, date_out, peroid_time, status } = await request.json();
+    // ⭐ ADDED: Update expired reservations before processing
+    await updateExpiredReservations(connection);
 
-    if (!username || !room || !seat || !date_in || !date_out || !peroid_time || !status) {
+    // ⭐ FIXED: Changed peroid_time to period_time
+    const { username, room, seat, date_in, date_out, period_time, status } = await request.json();
+
+    if (!username || !room || !seat || !date_in || !date_out || !period_time || !status) {
       await connection.end();
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -95,17 +126,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // Update the reservation
+    // ⭐ FIXED: Changed peroid_time to period_time in UPDATE query
     const updateQuery = `
       UPDATE nodelogin.stud_reserv 
-      SET date_in = ?, date_out = ?, peroid_time = ?, status = ?
+      SET date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
     await connection.execute(updateQuery, [
       date_in,
       date_out,
-      peroid_time,
+      period_time, // ⭐ FIXED: Changed from peroid_time to period_time
       status,
       username,
       room,
