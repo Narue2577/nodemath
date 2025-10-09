@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 export default function Request() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const { data: session, status } = useSession();
 
   // Enhanced cancelBooking handler
@@ -156,7 +156,7 @@ export default function Request() {
                           <td className="px-4 py-2 text-center border border-gray-300">{post.seat}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_in}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_out}</td>
-                          <td className="px-4 py-2 text-center border border-gray-300">{post.peroid_time}</td>
+                          <td className="px-4 py-2 text-center border border-gray-300">{post.period_time}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.status}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">
                             <button 

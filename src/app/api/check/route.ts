@@ -67,19 +67,23 @@ export async function GET(request: Request) {
 
     // Ensure `reservations` is an array
     const safeReservations = Array.isArray(reservations) ? reservations : [];
-
+    const formatDate = (dateString:any) => {
+  const date = new Date(dateString);
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+};
     // Format dates to "YYYY-MM-DD" without time
     /* eslint-disable */
     const formattedReservations = safeReservations.map((post: any) => ({  
       id: post.id,
       room: post.room,
       seat: post.seat,
-      date_in: post.date_in ? new Date(post.date_in).toISOString().split('T')[0] : "N/A",
-      date_out: post.date_out ? new Date(post.date_out).toISOString().split('T')[0] : "N/A",
+      date_in:  formatDate(post.date_in),
+      date_out: formatDate(post.date_out),
       period_time: post.period_time, // ⭐ FIXED: Changed from peroid_time to period_time
       status: post.status
     }));
-
+ /*date_in: post.date_in ? new Date(post.date_in).toISOString().split('T')[0] : "N/A",
+      date_out: post.date_out ? new Date(post.date_out).toISOString().split('T')[0] : "N/A", */
     console.log('Returning formatted reservations:', formattedReservations.length);
 
     return NextResponse.json({ 
