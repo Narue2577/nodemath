@@ -14,43 +14,30 @@ const LoginPage: React.FC = () => {
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
-const handleLogin = async (e: React.FormEvent) => {
+const handleRegister = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  if (!buasri) {
-    setError('Please fill in all fields.');
-    return;
-  }
-
   setIsPending(true);
   setError('');
-
   try {
-    const result = await signIn('credentials', {
-      buasri,
-      role,
-      redirect: false,
-    });
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role, input:buasri }),
+      });
 
-    if (result?.error) {
-      setError('Invalid credentials. Please try again.');
-      // Optional: redirect to reset password after failed login
-       setTimeout(() => router.push('/auth/reset-password'), 2000);
+      const data = await response.json();
+      
+
+    if (data.exists) {
+      setError('already registered.'); // Redirect ไปยังหน้าหลักหลังจาก login สำเร็จ
     } else {
-      const session = await getSession();
-      if (session?.user) {
-        const userRole = (session.user as any).role;
-        
-        if (userRole === 'student') {
-          router.push('/dashboard/student');
-        } else if (userRole === 'teacher') {
-          router.push('/dashboard/admin');
-        }
-      }
+      setError('Invalid Buasri ID or role');
     }
-  } catch (error) {
-    setError('An error occurred during login.');
-    console.error('Login error:', error);
+    } catch (error) {
+    console.error('Error checking input:', error);
+    setError('An error occurred. Please try again.');
   } finally {
     setIsPending(false);
   }
@@ -71,7 +58,7 @@ const handleLogin = async (e: React.FormEvent) => {
         <h2 className="mb-8 text-xl text-center text-gray-600">College of Social Communication Innovation</h2>
 
         {/* Login Form */}
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleRegister} className="space-y-6">
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-600">Buasri ID</label>
             <input

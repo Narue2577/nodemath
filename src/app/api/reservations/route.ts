@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         seat.seat,
         seat.date_in,
         seat.date_out,
-        seat.period_time || '9:00-12:00',
+        seat.period_time,
         seat.status || 'occupied'
       ]);
     }
