@@ -4,44 +4,45 @@
 import Link from "next/link";
 import Image from "next/image";
 import React, { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-const LoginPage: React.FC = () => {
+const RegisterPage: React.FC = () => {
   const [buasri, setBuasri] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [error, setError] = useState<string>('');
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
-const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsPending(true);
-  setError('');
-  try {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPending(true);
+    setError('');
+    
+    try {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ role, input:buasri }),
+        body: JSON.stringify({ buasri, role }),
       });
 
       const data = await response.json();
-      
 
-    if (data.exists) {
-      setError('already registered.'); // Redirect ไปยังหน้าหลักหลังจาก login สำเร็จ
-    } else {
-      setError('Invalid Buasri ID or role');
-    }
+      if (response.ok && data.exists) {
+        setError(data.error || 'You have already logged in.'); // Redirect ไปยังหน้าหลักหลังจาก login สำเร็จ
+      } else if (!data.exists) {
+         router.push(`/auth/login/dataform?buasri=${encodeURIComponent(buasri)}&role=${encodeURIComponent(role)}`);// Redirect ไปหน้า register พร้อมส่งข้อมูล buasri และ role
+      } else {
+        setError('Invalid credentials. Please try again.');
+      }
     } catch (error) {
-    console.error('Error checking input:', error);
-    setError('An error occurred. Please try again.');
-  } finally {
-    setIsPending(false);
-  }
-};
+      console.error('Login error:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -58,7 +59,7 @@ const handleRegister = async (e: React.FormEvent) => {
         <h2 className="mb-8 text-xl text-center text-gray-600">College of Social Communication Innovation</h2>
 
         {/* Login Form */}
-        <form onSubmit={handleRegister} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-600">Buasri ID</label>
             <input
@@ -121,4 +122,4 @@ const handleRegister = async (e: React.FormEvent) => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;

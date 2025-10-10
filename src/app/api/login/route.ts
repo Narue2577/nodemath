@@ -1,52 +1,63 @@
-// pages/api/login.ts
-import { NextApiRequest, NextApiResponse } from 'next';
+// /api/login/route.ts
+import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+export async function POST(request: Request) {
+  const { buasri, role } = await request.json();
 
-  const { role, input } = req.body;
+  // Create a connection to the MySQL database
+  const db = await mysql.createConnection({
+    host: 'localhost',
+    user: 'root', 
+    password: 'Ertnom35!', // **ควรเก็บรหัสผ่านใน environment variables เพื่อความปลอดภัย**
+    database: 'cosci_system'
+  });
 
   try {
-    // เชื่อมต่อกับฐานข้อมูล
-    const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: 'Ertnom35!',
-      database: 'cosci_system'
-    });
-
     let tableName, columnName;
+
+    // Determine the table and column based on the role
     if (role === 'student') {
-      tableName = 'student'; // ชื่อตารางสำหรับนักเรียน
-      columnName = 'stu_buasri'; // คอลัมน์ที่ใช้ตรวจสอบ
+      tableName = 'student'; 
+      columnName = 'stu_buasri';
     } else if (role === 'teacher') {
-      tableName = 'staff'; // ชื่อตารางสำหรับครู
-      columnName = 'staff_buasri'; // คอลัมน์ที่ใช้ตรวจสอบ
+      tableName = 'staff'; 
+      columnName = 'staff_buasri';
     } else {
-      await connection.end();
-      return res.status(400).json({ error: 'Invalid role' });
+      await db.end();
+      return NextResponse.json(
+        { error: 'Invalid role' }, // แจ้งข้อผิดพลาดที่ชัดเจน
+        { status: 400 }
+      );
     }
 
-    // คิวรีเพื่อตรวจสอบว่าข้อมูลมีอยู่ในฐานข้อมูลหรือไม่
-    const [rows] = await connection.execute(
-       `SELECT ${columnName} FROM ${tableName} WHERE ${columnName} = ?`,
-      [input]
+    // Query to check if the buasri exists in the database
+    const [rows] = await db.execute(
+      `SELECT ${columnName} AS buasri FROM ${tableName} WHERE ${columnName} = ?`,
+      [buasri]
     );
 
-    await connection.end();
+    await db.end();
 
     if (Array.isArray(rows) && rows.length > 0) {
-      // หากพบข้อมูลในฐานข้อมูล
-      return res.status(200).json({ exists: true });
+      // If the data exists in the database
+      return NextResponse.json(
+        { message: 'Login successful', exists: true }, 
+        { status: 200 }
+      );
     } else {
-      // หากไม่พบข้อมูลในฐานข้อมูล
-      return res.status(200).json({ exists: false });
+      // If the data does not exist, redirect to register page
+      return NextResponse.json(
+        { error: 'Buasri ID not found. Please register.', exists: false },
+        { status: 404 }
+      );
     }
   } catch (error) {
     console.error('Database error:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    await db.end();
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
