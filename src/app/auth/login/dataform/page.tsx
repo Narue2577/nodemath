@@ -27,8 +27,11 @@ const RegisterDetailsPage: React.FC = () => {
     setError('');
 
     try {
+
+      console.log("lo");
+
       // ส่งข้อมูลไปยัง API เพื่อบันทึกลงฐานข้อมูล
-      const response = await fetch('/api/auth/login/insertData', {
+      const response = await fetch('/api/login/insertData', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,9 +52,14 @@ const RegisterDetailsPage: React.FC = () => {
 
       //const data = await response.json();  Parse the response as JSON
 
-      if (response.ok) {
-        router.push('/dashboard'); // Redirect ไปหน้าหลักหลังจากบันทึกข้อมูลสำเร็จ
-      } else {
+      if (response.ok && role === "student") {
+
+        router.push('/dashboard/student'); // Redirect ไปหน้าหลักหลังจากบันทึกข้อมูลสำเร็จ
+      } else if(response.ok && role === "teacher"){
+          router.push('/dashboard/admin');
+      }else {
+        console.log(response);
+        
         setError('Failed to save details. Please try again.');
       }
     } catch (error) {
@@ -109,7 +117,7 @@ const RegisterDetailsPage: React.FC = () => {
          <div>
             <label className="block mb-2 text-sm font-medium text-gray-600">Password</label>
             <input
-              type="text"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -157,7 +165,7 @@ const RegisterDetailsPage: React.FC = () => {
           { role === 'student' &&<div>
             <label className="block mb-2 text-sm font-medium text-gray-600">Advisor (Coded)</label>
             <input
-              type="number"
+              type="text"
               value={advisor}
               onChange={(e) => setAdvisor(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"

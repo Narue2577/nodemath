@@ -4,7 +4,10 @@ import mysql from 'mysql2/promise';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
     const { id, buasri, fullName, email, password, position, phone, group, advisor, role } = req.body;
-
+    // Validate required fields
+    if (!id || !buasri || !fullName || !password || !role) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
     try {
       // Create a connection to the MySQL database
       const connection = await mysql.createConnection({
@@ -14,9 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          database: 'cosci_system'
       });
 
+      console.log(id);
+      
+
       if (role === 'student') {
         // Insert student data into the table
-        const [result] = await connection.execute(
+       await connection.execute(
           `INSERT INTO student 
            (stu_id, stu_buasri, stu_password, stu_name, stu_eng_name, stu_group, stu_advisor, stu_major, stu_status) 
            VALUES  (?,?,?,?,"",?,?,"","o")`,
@@ -24,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
       } else if (role === 'teacher') {
         // Insert teacher data into the table
-        const [result] = await connection.execute(
+        await connection.execute(
           `INSERT INTO staff 
            (staff_id,staff_buasri, staff_password, staff_name, staff_position, staff_email, staff_phone, staff_major, staff_workload, staff_from, staff_status) 
            VALUES (?,?,?,?,?,?,?,"",0,"","o")`,
