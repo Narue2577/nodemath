@@ -2,62 +2,70 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
-export async function POST(request: Request) {
-  const { buasri, role } = await request.json();
-
-  // Create a connection to the MySQL database
-  const db = await mysql.createConnection({
-    host: 'localhost',
-    user: 'root', 
-    password: 'Ertnom35!', // **ควรเก็บรหัสผ่านใน environment variables เพื่อความปลอดภัย**
-    database: 'cosci_system'
-  });
-
+export async function POST(req: Request) {
   try {
-    let tableName, columnName;
+    const body = await req.json();
+    const { name, email, password } = body;
 
-    // Determine the table and column based on the role
-    if (role === 'student') {
-      tableName = 'student'; 
-      columnName = 'stu_buasri';
-    } else if (role === 'teacher') {
-      tableName = 'staff'; 
-      columnName = 'staff_buasri';
-    } else {
-      await db.end();
+    // Validate input (optional but recommended)
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Invalid role' }, // แจ้งข้อผิดพลาดที่ชัดเจน
+        { message: 'All fields are required' },
         { status: 400 }
       );
     }
 
-    // Query to check if the buasri exists in the database
-    const [rows] = await db.execute(
-      `SELECT ${columnName} AS buasri FROM ${tableName} WHERE ${columnName} = ?`,
-      [buasri]
-    );
+    // Create a MySQL connection pool
+    const pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+    });
 
-    await db.end();
+    try {
+      // Check if the user already exists
+      const [rows] = await pool.query('SELECT * FROM users WHERE name = ?', [
+        name,
+      ]);
 
-    if (Array.isArray(rows) && rows.length > 0) {
-      // If the data exists in the database
+      if (Array.isArray(rows) && rows.length > 0) {
+        // If the user exists, update their record
+        await pool.query(
+          'UPDATE users SET email = ?, password = ? WHERE name = ?',
+          [email, password, name]
+        );
+        return NextResponse.json({ message: 'User updated successfully' });
+      } else {
+        // If the user doesn't exist, create a new record
+        await pool.query(
+          'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+          [name, email, password]
+        );
+        return NextResponse.json(
+          { message: 'User registered successfully' },
+          { status: 201 }
+        );
+      }
+    } catch (error) {
+      console.error('Database error:', error);
       return NextResponse.json(
-        { message: 'Login successful', exists: true }, 
-        { status: 200 }
+        { message: 'Internal server error' },
+        { status: 500 }
       );
-    } else {
-      // If the data does not exist, redirect to register page
-      return NextResponse.json(
-        { error: 'Buasri ID not found. Please register.', exists: false },
-        { status: 404 }
-      );
+    } finally {
+      await pool.end();
     }
   } catch (error) {
-    console.error('Database error:', error);
-    await db.end();
+    console.error('Request parsing error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { message: 'Invalid request body' },
+      { status: 400 }
     );
   }
+}
+
+// Handle other HTTP methods
+export async function GET() {
+  return NextResponse.json({ message: 'Method Not Allowed' }, { status: 405 });
 }

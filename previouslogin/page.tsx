@@ -17,106 +17,157 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+   const previousRole = useRef(role);
   const [isPending, setIsPending] = useState(false);
-  const [buasriRegistered, setBuasriRegistered] = useState(false);
+   const [buasriRegistered, setBuasriRegistered] = useState(false);
 
   const handleRoleChange = (newRole: 'student' | 'teacher') => {
     setRole(newRole);
-    // Clear all fields when switching roles
-    setBuasri('');
-    setFullName('');
-    setEnName('');
-    setMajor('');
-    setPosition('');
-    setEmail('');
-    setPhone('');
-    setPassword('');
-    setShow(false);
-    setBuasriRegistered(false);
+     setBuasri('');  // Reset input when switching roles
+     setFullName('');
+     previousRole.current = newRole;
   };
 
-  // Check if the name is already registered
-  const checkIfNameExists = async (buasriValue: string, currentRole: string) => {
-    if (!buasriValue || buasriValue.trim().length < 3) {
-      setBuasriRegistered(false);
-      setFullName('');
-      return;
-    }
-
+   // Check if the name is already registered
+  const checkIfNameExists = async (buasriValue: string) => {
     try {
       const response = await fetch('/api/check-name', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buasri: buasriValue, role: currentRole }),
+        body: JSON.stringify({ buasri: buasriValue, role:role }),
       });
       const data = await response.json();
-      
       setBuasriRegistered(data.exists);
-      
       if (data.exists && data.userData) {
-        // Get the name field from database
-        const name = currentRole === 'student' 
-          ? data.userData.stu_name 
-          : data.userData.staff_name;
-        
-        setFullName(name || '');
-      } else {
-        setFullName('');
-      }
+      // Populate your inputs here
+      setBuasri(data.userData.stu_buasri || data.userData.staff_buasri);
+      // Add more fields as needed
+    }
     } catch (error) {
       console.error('Error checking name:', error);
-      setBuasriRegistered(false);
-      setFullName('');
     }
   };
-
-  // Handle Buasri ID change
-  const handleBuasriChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Buasri ID change and show additional fields
+  const handleBuasriChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setBuasri(value);
     
     // Show additional fields when Buasri ID has at least 3 characters
     if (value.trim().length >= 3) {
       setShow(true);
+      await checkIfNameExists(value); // Check if the name is registered
+
+      // Auto-fetch when user enters ID
+    if (value.length > 0) {
+      try {
+        const response = await fetch('/api/check-name', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            buasri: value,
+            role: role,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.exists && data.userData) {
+          // Get the name field from your database result
+          const name = role === 'student' 
+            ? data.userData.stu_name // Replace with your actual column name
+            : data.userData.staff_name; // Replace with your actual column name
+          
+          setFullName(name || '');
+        } else {
+          setFullName(''); // Clear if not found
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    } else {
+      setFullName(''); // Clear if input is empty
+    }
     } else {
       setShow(false);
-      setBuasriRegistered(false);
-      setFullName('');
     }
   };
 
-  // Debounced fetch with useEffect
-  useEffect(() => {
-    if (buasri && buasri.trim().length >= 3) {
-      const timer = setTimeout(() => {
-        checkIfNameExists(buasri, role);
-      }, 500); // Wait 500ms after user stops typing
-
-      return () => clearTimeout(timer);
-    } else {
-      setBuasriRegistered(false);
-      setFullName('');
+  const handleBuasriBlur = async () => {
+  if (!buasri || previousRole.current !== role) {
+      previousRole.current = role;
+      return;
     }
-  }, [buasri, role]);
+  if (buasri) {
+    checkIfNameExists(buasri);
+    try {
+        const response = await fetch('/api/check-name', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            buasri: buasri,
+            role: role,
+          }),
+        });
+        const data = await response.json();
+
+        if (data.exists && data.userData) {
+          // Get the name field from database
+          const name = role === 'student' 
+            ? data.userData.stu_name // Replace with your actual column name
+            : data.userData.staff_name; // Replace with your actual column name
+          
+          setFullName(name || '');
+        } else {
+          setFullName('');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+  }
+};
+
+useEffect(() => {
+  if (buasri) {
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch('/api/check-name', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buasri: buasri, role: 'student' }),
+        });
+
+        const data = await response.json();
+        if (data.exists && data.userData) {
+          setFullName(data.userData.stu_name || ''); // Replace with your column name
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }
+}, [buasri]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsPending(true);
     console.log({ buasri, role, fullName, position, email, password });
-    
-    try {
+   try {
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buasri, role, fullName, position, email, phone, password }),
+        body: JSON.stringify({ name, email, password }),
       });
       const data = await response.json();
-      alert(data.message);
+      alert(data.message); // Show success message
     } catch (error) {
       console.error('Registration error:', error);
       alert('Failed to register');
-    } finally {
-      setIsPending(false);
     }
   };
 
@@ -138,8 +189,29 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <div className="space-y-6">
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-600">
+              Buasri ID
+            </label>
+            <input
+              type="text"
+              value={buasri}
+              onChange={handleBuasriChange}
+              onBlur={handleBuasriBlur}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your Buasri ID"
+            />
+            {buasriRegistered && (
+              <p style={{ color: 'green' }}>✓ This ID is registered</p>
+              )}
+
+            {!buasriRegistered && buasri && (
+            <p style={{ color: 'red' }}>✗ This ID is not found</p>
+            )}
+          </div>
+
           {/* Role Selection Buttons */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-6">
             <button
               type="button"
               onClick={() => handleRoleChange('student')}
@@ -163,28 +235,8 @@ export default function LoginPage() {
               Faculty/Staff
             </button>
           </div>
-
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-600">
-              Buasri ID
-            </label>
-            <input
-              type="text"
-              value={buasri}
-              onChange={handleBuasriChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-              placeholder="Enter your Buasri ID"
-            />
-            {buasriRegistered && buasri && (
-              <p className="mt-1 text-sm text-green-600">✓ This ID is registered</p>
-            )}
-            {!buasriRegistered && buasri && buasri.trim().length >= 3 && (
-              <p className="mt-1 text-sm text-red-600">✗ This ID is not found</p>
-            )}
-          </div>
-
           {/*show for student*/}
-          {show && role === "student" && (
+          {show && role === "student" &&(
             <div className="space-y-4 animate-fade-in">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-600">
@@ -236,9 +288,8 @@ export default function LoginPage() {
               </div>
             </div>
           )}
-
           {/*show for teacher*/}
-          {show && role === "teacher" && (
+          {show && role === "teacher" &&(
             <div className="space-y-4 animate-fade-in">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-600">
@@ -293,7 +344,7 @@ export default function LoginPage() {
                   Phone
                 </label>
                 <input
-                  type="tel"
+                  type="phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -318,7 +369,7 @@ export default function LoginPage() {
 
         {/* Registration Link */}
         <div className="mt-6 text-center">
-          <Link href="/auth/register" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
+         <Link href="/auth/register" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
             Register
           </Link>
         </div>
@@ -337,19 +388,8 @@ export default function LoginPage() {
           .animate-fade-in {
             animation: fadeIn 0.4s ease-out;
           }
-          input:focus {
-            box-shadow: none !important;
-            outline: none !important;
-          }
         `}</style>
       </div>
     </div>
   );
 }
-
-/*Removed duplicate fetch calls - You had 3 places fetching data (onChange, onBlur, useEffect). Now only useEffect does it.
-Removed onBlur handler - Not needed anymore since useEffect handles the debounced fetch.
-Removed previousRole ref - Not needed with the simplified approach.
-handleRoleChange now clears ALL fields - When you switch between Student/Faculty, everything resets to empty.
-Cleaned up checkIfNameExists - Now it properly handles the role parameter and clears data when ID is too short.
-useEffect with debounce - Waits 500ms after you stop typing, then fetches data. This prevents multiple API calls. */
