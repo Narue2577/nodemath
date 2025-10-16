@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
+import { getSession, signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const [buasri, setBuasri] = useState('');
@@ -19,7 +20,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [buasriRegistered, setBuasriRegistered] = useState(false);
-
+  const router = useRouter();
+  
   const handleRoleChange = (newRole: 'student' | 'teacher') => {
     setRole(newRole);
     // Clear all fields when switching roles
@@ -58,10 +60,29 @@ export default function LoginPage() {
         const name = currentRole === 'student' 
           ? data.userData.stu_name 
           : data.userData.staff_name;
-        
-        setFullName(name || '');
+         const password = currentRole === 'student' 
+          ? data.userData.stu_password 
+          : data.userData.staff_password;
+        const position = data.userData.staff_position;
+        const email = data.userData.staff_email;
+        const phone = data.userData.staff_phone;
+        const enName = data.userData.stu_eng_name;
+        const major = data.userData.stu_major;
+        setFullName(name);
+        setPassword(password);
+        setPosition(position ||'');
+        setEmail(email ||'');
+        setPhone(phone || '');
+        setEnName(enName||'');
+        setMajor(major);
       } else {
         setFullName('');
+        setPassword('');
+        setPosition('');
+        setEmail('');
+        setPhone('');
+        setEnName('');
+        setMajor('');
       }
     } catch (error) {
       console.error('Error checking name:', error);
@@ -99,26 +120,55 @@ export default function LoginPage() {
     }
   }, [buasri, role]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsPending(true);
-    console.log({ buasri, role, fullName, position, email, password });
-    
-    try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ buasri, role, fullName, position, email, phone, password }),
-      });
-      const data = await response.json();
-      alert(data.message);
-    } catch (error) {
-      console.error('Registration error:', error);
-      alert('Failed to register');
-    } finally {
-      setIsPending(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+  setIsPending(true);
+  
+  // Validate required fields
+  if (!buasri || !password) {
+    setError('Please enter your Buasri ID and password');
+    setIsPending(false);
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        role, 
+        buasri, 
+        fullName, 
+        email, 
+        password, 
+        position, 
+        phone, 
+        enName, 
+        major 
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Login successful
+      if (role === "student") {
+        router.push("/dashboard/student");
+      } else if (role === "teacher") {
+        router.push("/dashboard/admin");
+      }
+    } else {
+      // Login failed - show error message
+      setError(data.message || "Login failed");
     }
-  };
+  } catch (error) {
+    console.error('Login error:', error);
+    setError('Failed to connect to server');
+  //} finally {
+    setIsPending(false);
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -138,7 +188,28 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <div className="space-y-6">
-          {/* Role Selection Buttons */}
+         
+
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-600">
+              Buasri ID
+            </label>
+            <input
+              type="text"
+              value={buasri}
+              onChange={handleBuasriChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+              placeholder="Enter your Buasri ID"
+            />
+            {buasriRegistered && buasri && (
+              <p className="mt-1 text-sm text-green-600">✓ This ID is registered</p>
+            )}
+            {!buasriRegistered && buasri && buasri.trim().length >= 3 && (
+              <p className="mt-1 text-sm text-red-600">✗ This ID is not found</p>
+            )}
+          </div>
+          
+           {/* Role Selection Buttons */}
           <div className="flex gap-4">
             <button
               type="button"
@@ -162,25 +233,6 @@ export default function LoginPage() {
             >
               Faculty/Staff
             </button>
-          </div>
-
-          <div>
-            <label className="block mb-2 text-sm font-medium text-gray-600">
-              Buasri ID
-            </label>
-            <input
-              type="text"
-              value={buasri}
-              onChange={handleBuasriChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-              placeholder="Enter your Buasri ID"
-            />
-            {buasriRegistered && buasri && (
-              <p className="mt-1 text-sm text-green-600">✓ This ID is registered</p>
-            )}
-            {!buasriRegistered && buasri && buasri.trim().length >= 3 && (
-              <p className="mt-1 text-sm text-red-600">✗ This ID is not found</p>
-            )}
           </div>
 
           {/*show for student*/}

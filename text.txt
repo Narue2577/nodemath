@@ -1,0 +1,273 @@
+To implement the login functionality similar to your registration page without modifying much, you can follow these steps. I'll guide you on how to adapt your existing `LoginPage` component to handle authentication and redirection based on roles.
+
+Here’s how you can do it:
+
+---
+
+### 1. **Update the Login Page (`login/page.tsx`)**
+You already have most of the structure in place. You just need to integrate the login logic from your registration page into the `handleSubmit` function.
+
+```tsx
+'use client';
+/* eslint-disable */
+import { useEffect, useRef, useState } from 'react';
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getSession, signIn } from "next-auth/react";
+
+export default function LoginPage() {
+  const [buasri, setBuasri] = useState('');
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [show, setShow] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [enName, setEnName] = useState('');
+  const [major, setMajor] = useState('');
+  const [position, setPosition] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
+
+  // Handle role change
+  const handleRoleChange = (newRole: 'student' | 'teacher') => {
+    setRole(newRole);
+    // Clear all fields when switching roles
+    setBuasri('');
+    setFullName('');
+    setEnName('');
+    setMajor('');
+    setPosition('');
+    setEmail('');
+    setPhone('');
+    setPassword('');
+    setShow(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPending(true);
+    setError('');
+
+    if (!buasri || !password) {
+      setError('Please fill in all fields.');
+      setIsPending(false);
+      return;
+    }
+
+    try {
+      // Use NextAuth's signIn method
+      const result = await signIn('credentials', {
+        buasri,
+        role,
+        password,
+        redirect: false, // Prevent automatic redirection
+      });
+
+      if (result?.error) {
+        setError('Invalid credentials. Please try again.');
+        setIsPending(false);
+        return;
+      }
+
+      // Add a small delay to ensure session is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get fresh session
+      const session = await getSession();
+      console.log('Session after login:', session); // Debug log
+
+      if (session?.user) {
+        const userRole = (session.user as any).role;
+
+        // Redirect based on role
+        if (userRole === 'teacher') {
+          router.push('/dashboard/admin');
+        } else if (userRole === 'student') {
+          router.push('/dashboard/student');
+        } else {
+          setError('User role not found. Please contact administrator.');
+          setIsPending(false);
+        }
+      } else {
+        setError('Failed to retrieve session. Please try again.');
+        setIsPending(false);
+      }
+    } catch (error) {
+      setError('An error occurred during login.');
+      console.error('Login error:', error);
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="w-full max-w-lg p-8 bg-white rounded-lg shadow-md">
+        {/* Logo */}
+        <div className="relative flex flex-col items-center justify-center w-full mb-6">
+          <Image src="/swuEng.png" width={150} height={150} alt="SWU Logo" />
+        </div>
+
+        {/* Title */}
+        <h1 className="mb-6 text-3xl font-bold text-center text-gray-800">
+          {role === 'student' ? 'Student Login' : 'Faculty/Staff Login'}
+        </h1>
+        <h2 className="mb-8 text-xl text-center text-gray-600">
+          College of Social Communication Innovation
+        </h2>
+
+        {/* Login Form */}
+        <div className="space-y-6">
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-600">
+              Buasri ID
+            </label>
+            <input
+              type="text"
+              value={buasri}
+              onChange={(e) => setBuasri(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your Buasri ID"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-600">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your password"
+            />
+          </div>
+
+          {/* Role Selection Buttons */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => handleRoleChange('student')}
+              className={`w-full px-4 py-2 rounded-md transition duration-300 ${
+                role === 'student'
+                  ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Student
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRoleChange('teacher')}
+              className={`w-full px-4 py-2 rounded-md transition duration-300 ${
+                role === 'teacher'
+                  ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              Faculty/Staff
+            </button>
+          </div>
+
+          {/* Error Message */}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+          {/* Login Button */}
+          <button
+            onClick={handleSubmit}
+            className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
+            disabled={isPending}
+          >
+            {isPending ? 'Logging in...' : 'Login'}
+          </button>
+        </div>
+
+        {/* Registration Link */}
+        <div className="mt-6 text-center">
+          <Link href="/auth/register" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
+            Register
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+### Key Changes:
+1. **`handleSubmit` Function**:
+   - Uses `signIn('credentials', { ... })` from NextAuth for authentication.
+   - Redirects to `/dashboard/student` or `/dashboard/admin` based on the user's role.
+
+2. **Role Handling**:
+   - The `role` state is used to determine whether the user is a student or teacher/faculty.
+
+3. **Error Handling**:
+   - Displays error messages if login fails (e.g., invalid credentials).
+
+4. **Session Management**:
+   - Uses `getSession()` after successful login to verify the user's role and redirect accordingly.
+
+---
+
+### 2. **Ensure Your NextAuth Configuration Supports Roles**
+Make sure your NextAuth configuration (`pages/api/auth/[...nextauth].ts`) includes a way to store and retrieve the user’s role in the session. For example:
+
+```typescript
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+
+export default NextAuth({
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        buasri: { label: "Buasri ID", type: "text" },
+        password: { label: "Password", type: "password" },
+        role: { label: "Role", type: "text" }
+      },
+      async authorize(credentials) {
+        // Fetch user from your database
+        const user = await fetchUserFromDatabase(credentials?.buasri, credentials?.role);
+
+        if (user && user.password === credentials?.password) {
+          return { id: user.id, name: user.name, role: user.role };
+        }
+        return null;
+      },
+    }),
+  ],
+  callbacks: {
+    async session({ session, token }) {
+      // Add the role to the session
+      if (token.role) {
+        session.user = { ...session.user, role: token.role };
+      }
+      return session;
+    },
+    async jwt({ token, user }) {
+      if (user?.role) {
+        token.role = user.role;
+      }
+      return token;
+    },
+  },
+});
+```
+
+---
+
+### 3. **Test the Login Flow**
+1. Start your Next.js app.
+2. Navigate to `/login`.
+3. Enter valid credentials for a student or teacher/faculty.
+4. Verify that you are redirected to the correct dashboard (`/dashboard/student` or `/dashboard/admin`) based on the role.
+
+---
+
+This approach integrates the login functionality without modifying much of your existing code structure. Let me know if you need further assistance! 😊
