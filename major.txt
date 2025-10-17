@@ -135,3 +135,15 @@ async authorize(credentials) {
 5. ✅ Are TypeScript types properly extended?
 
 What's the actual error or behavior you're seeing?
+
+
+ให้นิสิตนำ Assignment Frontend เรื่อง Bootstrap ล่าสุดเรื่อง Arduino/Raspberry pi (ที่ทำเป็น VDO) มาแก้ไขในรูปแบบ ประสานกับ Backend ที่เรียนเรื่อง Node.js โดยมีข้อกำหนดดังนี้
+
+1. ให้สร้าง Database ใหม่ชื่อ iOTShop โดยมี Table ดังนี้
+   Member ไว้เก็บข้อมูลสมาชิก เช่น Fullname / DOB / phone / email /password/ address / stampdate 
+โดยมี email เป็น PK
+2. ให้ปรับ Frontend Menu เพิ่มหน้า Login ถ้าพบว่าไม่มี email อยู่ในระบบจะแนะนำให้ลงทะเบียนสมาชิกใหม่  หรือสมัครใหม่ผ่านลิ้งค์สำหรับลงทะเบียนสมาชิกใหม่แสดงอยู่ด้านล่าง ในหน้าเดียวกับ Login
+3. กำหนดให้ลงทะเบียนข้อมูลตามโครงสร้าง Table Member ห้ามใช้อีเมลซ้ำ ระบบจะแจ้งเตือน
+4. กำหนดให้เฉพาะหน้าแรก และหน้าลงทะเบียนสมาชิกใหม่เท่านั้นที่เข้าได้ทั่วไป หน้าอื่นๆ ที่เหลือบังคับต้อง Login ก่อนเท่านั้น
+5. มีลิ้งค์สำหรับการทำ Forgot password โดยกำหนดให้ส่ง password ชั่วคราวทางอีเมล
+6. รหัสผ่านจะต้องเข้ารหัส bcrypt+salt เท่านั้นก่อนบันทึกลงใน database

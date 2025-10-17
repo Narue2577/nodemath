@@ -97,7 +97,7 @@ export default function LoginPage() {
     setBuasri(value);
     
     // Show additional fields when Buasri ID has at least 3 characters
-    if (value.trim().length >= 3) {
+    if (value.trim().length >= 5) {
       setShow(true);
     } else {
       setShow(false);
@@ -133,7 +133,8 @@ export default function LoginPage() {
   }
   
   try {
-    const response = await fetch('/api/login', {
+    // Step 1: Register/Update user in database
+    const registerResponse = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -149,23 +150,53 @@ export default function LoginPage() {
       }),
     });
 
-    const data = await response.json();
+    const registerData = await registerResponse.json();
 
-    if (response.ok) {
-      // Login successful
-      if (role === "student") {
-        router.push("/dashboard/student");
-      } else if (role === "teacher") {
-        router.push("/dashboard/admin");
+    if (!registerResponse.ok) {
+      setError(registerData.message || 'Registration/Update failed');
+      setIsPending(false);
+      return;
+    }
+
+    // Step 2: Authenticate with NextAuth
+    const result = await signIn('credentials', {
+      buasri,
+      role,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError('Invalid credentials. Please try again.');
+      setIsPending(false);
+      return;
+    }
+
+    // Step 3: Wait for session to update
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Step 4: Get session and redirect
+    const session = await getSession();
+    console.log('Session after login:', session);
+
+    if (session?.user) {
+      const userRole = (session.user as any).role;
+
+      if (userRole === 'teacher') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'student') {
+        router.push('/dashboard/student');
+      } else {
+        setError('User role not found. Please contact administrator.');
+        setIsPending(false);
       }
     } else {
-      // Login failed - show error message
-      setError(data.message || "Login failed");
+      setError('Failed to retrieve session. Please try again.');
+      setIsPending(false);
     }
   } catch (error) {
+    setError('An error occurred during login.');
     console.error('Login error:', error);
-    setError('Failed to connect to server');
-  //} finally {
     setIsPending(false);
   }
 };
