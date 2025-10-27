@@ -21,6 +21,7 @@ export default function Navbar({ profile }: NavbarProps) {
   const userRole = (session?.user as any)?.role;
   const dashboardLink = userRole === 'teacher' ? '/dashboard/admin' : '/dashboard/student';
   
+  
   return (
     <>
       <div className="container px-4 mx-auto">
@@ -37,6 +38,9 @@ export default function Navbar({ profile }: NavbarProps) {
             {/* ✅ FIXED: Dynamic dashboard link based on role */}
             <a href={dashboardLink} className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
               {session?.user?.name || 'Username'}
+            </a>
+            <a href="/profile" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
+              Profile
             </a>
             <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Cancellations</a>
@@ -56,6 +60,9 @@ export default function Navbar({ profile }: NavbarProps) {
             {/* ✅ FIXED: Dynamic dashboard link for mobile */}
             <a href={dashboardLink} className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
               {session?.user?.name || profile || 'Username'}
+            </a>
+            <a href="/profile" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
+              Profile
             </a>
             <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Request</a>

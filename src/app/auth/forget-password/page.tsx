@@ -1,4 +1,4 @@
-// app/reset-password/page.tsx
+// app/auth/forget-password/page.tsx
 'use client'
 import Link from "next/link";
 import Image from "next/image";
@@ -93,7 +93,7 @@ const PasswordPage: React.FC = () => {
             className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
             disabled={isPending}
           >
-            {isPending ? 'Logging in...' : 'Login'}
+            {isPending ? 'Logging in...' : 'Send Email'}
           </button>
         </form>
 

@@ -125,7 +125,7 @@ export default function RegisterPage() {
               required
             />
            
-            <Link href="/forget-password" className="grid pt-2 ml-4 text-left text-red-600 justify-items-start hover:text-red-300">
+            <Link href="/auth/forget-password" className="grid pt-2 ml-4 text-left text-red-600 justify-items-start hover:text-red-300">
               Forget your password?
             </Link>
           </div>

@@ -330,10 +330,11 @@ export default function LoginPage() {
               placeholder="Enter your Buasri ID"
             />
             {buasriRegistered && buasri && (
-              <p className="mt-1 text-sm text-green-600">✓ This ID is registered</p>
-            )}
+              <p className="mt-1 text-sm text-red-600">✗This ID is already registered. Please login</p>
+            ) 
+            }
             {!buasriRegistered && buasri && buasri.trim().length >= 3 && (
-              <p className="mt-1 text-sm text-red-600">✗ This ID is not found</p>
+              <p className="mt-1 text-sm text-green-600">✓ Please fill your personal information. </p>
             )}
           </div>
           
@@ -364,7 +365,7 @@ export default function LoginPage() {
           </div>
 
           {/*show for student*/}
-          {show && role === "student" && (
+          {show && !buasriRegistered && role === "student" && (
             <div className="space-y-4 animate-fade-in">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-600">
@@ -418,7 +419,7 @@ export default function LoginPage() {
           )}
 
           {/*show for teacher*/}
-          {show && role === "teacher" && (
+          {show && !buasriRegistered && role === "teacher" && (
             <div className="space-y-4 animate-fade-in">
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-600">
