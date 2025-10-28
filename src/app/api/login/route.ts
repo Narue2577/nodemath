@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       } else {
         const staffId = generateUniqueId();
         await pool.query(
-          'INSERT INTO staff (staff_id, staff_buasri, staff_password, staff_name, staff_position, staff_email, staff_phone, staff_major, staff_workload, staff_from, staff_status) VALUES (?, ?, ?, ?, ?, ?, ?, "", 0, "", "o")',
+          'INSERT INTO staff (staff_id, staff_buasri, staff_password, staff_name, staff_position, staff_email, staff_phone, staff_major, staff_workload, staff_from, staff_status) VALUES (?, ?, ?, ?, ?, ?, ?, "",21, "", "o")',
           [staffId, buasri, password, fullName, position, email, phone || ""]
         );
       }

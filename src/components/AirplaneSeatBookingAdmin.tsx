@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, User, Users2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 interface AirplaneSeatBookingProps {
@@ -15,9 +15,12 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const [passengerCount, setPassengerCount] = useState(4);
+  const [passengerCount, setPassengerCount] = useState(10);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
+  const [dateTimeInputs, setDateTimeInputs] = useState({});
+  const [bookingType, setBookingType] = useState(null); // 'single' or 'room';
+  const [maxSeats, setMaxSeats] = useState(1);
   
   // Bulk datetime input for all seats
   const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
@@ -124,6 +127,42 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       ]
     }
   ];
+
+  // Get all available seats for a room
+  const getAvailableSeats = (airplane) => {
+    const allSeats = [];
+    airplane.layout.forEach((section) => {
+      const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
+      for (let row = 1; row <= section.rows; row++) {
+        seatLetters.forEach((letter) => {
+          const seatId = `${row}${letter}`;
+          if (!airplane.unused.includes(seatId) && !bookings[airplane.id]?.includes(seatId)) {
+            allSeats.push(seatId);
+          }
+        });
+      }
+    });
+    return allSeats;
+  };
+
+
+  const handleBookingTypeSelect = (type) => {
+    // Don't reset if already in this mode
+    if (bookingType === type) return;
+    
+    setBookingType(type);
+    setSelectedSeats([]);
+    setDateTimeInputs({});
+    
+    if (type === 'room') {
+      // Auto-select all available seats
+      const availableSeats = getAvailableSeats(selectedAirplane);
+      setSelectedSeats(availableSeats);
+      setMaxSeats(availableSeats.length);
+    } else {
+      setMaxSeats(1); // Default to 1 for single booking
+    }
+  };
 
   const fetchReservations = async () => {
     try {
@@ -392,8 +431,35 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   // ⭐ FIXED: BookingTable now uses session username
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
-      <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary (Admin)</h3>
-      
+      <div className="flex gap-3">
+        <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary (Admin)</h3>
+                <button
+                  onClick={() => handleBookingTypeSelect('single')}
+                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                    bookingType === 'single'
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium">Single</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleBookingTypeSelect('room')}
+                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                    bookingType === 'room'
+                      ? 'border-purple-500 bg-purple-500 text-white'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users2 className="w-4 h-4" />
+                    <span className="font-medium">Room</span>
+                  </div>
+                </button>
+              </div>
       <div className="mb-4 text-sm">
         <p><strong>Staff Name:</strong> {username}</p>
         <p><strong>Major:</strong> {position}</p>
