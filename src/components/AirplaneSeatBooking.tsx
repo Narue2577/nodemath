@@ -1,31 +1,61 @@
-'use client'
-/* eslint-disable */
+// src/components/AirplaneSeatBooking.tsx
+"use client"
+
 import React, { useState, useEffect } from 'react';
-import { Check, X, Upload, FileText, PenTool, User, Users2} from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { useSession } from "next-auth/react";
 
+/* eslint-disable */
+interface AirplaneSeatBookingProps {
+  tableHeader?: string; // This can be removed if you only use session
+}
 
-const AirplaneSeatBooking = () => {
+const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
+  const { data: session, status } = useSession();
+  
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const [bookingType, setBookingType] = useState(null); // 'single' or 'room'
-  const [maxSeats, setMaxSeats] = useState(1);
+  const [passengerCount, setPassengerCount] = useState(4);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get username from session or fallback to prop
+  const username =  session?.user?.name || tableHeader || 'Guest';
+  const major = session?.user?.field || 'Not specified';
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading authentication...</div>
+      </div>
+    );
+  }
+
+  // Optional: Require authentication
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="p-8 text-center bg-white rounded-lg shadow-lg">
+          <h2 className="mb-4 text-2xl font-bold text-gray-800">Authentication Required</h2>
+          <p className="mb-6 text-gray-600">Please sign in to book seats.</p>
+          <button
+            onClick={() => window.location.href = '/api/auth/signin'}
+            className="px-6 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("Session Data:", session);
+  console.log("Using username:", username);
+  console.log('Field:', session?.user?.field);
   
-  // Permit/Signature related states
-  const [permitMethod, setPermitMethod] = useState('digital'); // 'digital' or 'upload'
-  const [digitalSignature, setDigitalSignature] = useState('');
-  const [permitName, setPermitName] = useState('');
-  const [permitRole, setPermitRole] = useState('');
-  const [uploadedPermit, setUploadedPermit] = useState(null);
-  const [showPermitForm, setShowPermitForm] = useState(false);
-
-  // Mock session data - replace with actual useSession
-  const username = 'John Doe';
-  const major = 'Computer Science';
-
+  // Sample airplane data with different configurations
   const airplanes = [
     {
       id: 'room601',
@@ -89,43 +119,49 @@ const AirplaneSeatBooking = () => {
     }
   ];
 
-  // Get all available seats for a room
-  const getAvailableSeats = (airplane) => {
-    const allSeats = [];
-    airplane.layout.forEach((section) => {
-      const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
-      for (let row = 1; row <= section.rows; row++) {
-        seatLetters.forEach((letter) => {
-          const seatId = `${row}${letter}`;
-          if (!airplane.unused.includes(seatId) && !bookings[airplane.id]?.includes(seatId)) {
-            allSeats.push(seatId);
-          }
-        });
-      }
-    });
-    return allSeats;
-  };
+  // Fetch reservations from database with better error handling
+  const fetchReservations = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/reservations', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-  // Handle booking type selection
-  const handleBookingTypeSelect = (type) => {
-    // Don't reset if already in this mode
-    if (bookingType === type) return;
-    
-    setBookingType(type);
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-    
-    if (type === 'room') {
-      // Auto-select all available seats
-      const availableSeats = getAvailableSeats(selectedAirplane);
-      setSelectedSeats(availableSeats);
-      setMaxSeats(availableSeats.length);
-    } else {
-      setMaxSeats(1); // Default to 1 for single booking
+      if (response.ok) {
+        const data = await response.json();
+        // Group reservations by room
+        const reservationsByRoom = {};
+        if (data.reservations && Array.isArray(data.reservations)) {
+          data.reservations.forEach(reservation => {
+            if (reservation.room && reservation.seat) {
+              if (!reservationsByRoom[reservation.room]) {
+                reservationsByRoom[reservation.room] = [];
+              }
+              reservationsByRoom[reservation.room].push(reservation.seat);
+            }
+          });
+        }
+        setBookings(reservationsByRoom);
+      } else {
+        console.warn('Failed to fetch reservations:', response.status);
+        // Don't show error to user for failed fetches, just use empty bookings
+      }
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+      // Fallback to empty bookings if API is not available
+      setBookings({});
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Generate seat map
+  // Load reservations when component mounts
+  useEffect(() => {
+    fetchReservations();
+  }, []);
+
+  // Generate seat map for an airplane
   const generateSeatMap = (airplane) => {
     const seatMap = [];
     let currentRow = 1;
@@ -160,25 +196,25 @@ const AirplaneSeatBooking = () => {
     return seatMap;
   };
 
-  // Handle seat click
+  // Handle seat selection
   const handleSeatClick = (seatId, occupied, unused) => {
-    if (occupied || unused || bookingType === 'room') return;
+    if (occupied || unused) return;
 
     if (selectedSeats.includes(seatId)) {
       setSelectedSeats(selectedSeats.filter(id => id !== seatId));
     } else {
-      if (selectedSeats.length < maxSeats) {
+      if (selectedSeats.length < passengerCount) {
         setSelectedSeats([...selectedSeats, seatId]);
       } else {
-        alert(`You can only select up to ${maxSeats} seats for single booking.`);
+        setSelectedSeats([...selectedSeats.slice(1), seatId]);
       }
     }
   };
 
-  // Handle removing a seat
+  // Handle removing a seat from the booking table
   const handleRemoveSeat = (seatId) => {
-    if (bookingType === 'room') return; // Can't remove seats in room booking
     setSelectedSeats(selectedSeats.filter(id => id !== seatId));
+    // Remove datetime inputs for removed seat
     setDateTimeInputs(prev => {
       const newInputs = { ...prev };
       delete newInputs[seatId];
@@ -186,67 +222,18 @@ const AirplaneSeatBooking = () => {
     });
   };
 
-  // Handle datetime input changes
+  // Handle datetime input changes - Fixed validation
   const handleDateTimeChange = (seatId, field, value) => {
-    if (bookingType === 'room') {
-      // Apply to all seats in room booking
-      const newInputs = {};
-      selectedSeats.forEach(seat => {
-        newInputs[seat] = {
-          ...dateTimeInputs[seat],
-          [field]: value
-        };
-      });
-      setDateTimeInputs(newInputs);
-    } else {
-      setDateTimeInputs(prev => ({
-        ...prev,
-        [seatId]: {
-          ...prev[seatId],
-          [field]: value
-        }
-      }));
-    }
+    setDateTimeInputs(prev => ({
+      ...prev,
+      [seatId]: {
+        ...prev[seatId],
+        [field]: value
+      }
+    }));
   };
 
-  // Handle file upload
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('File size must be less than 5MB');
-        return;
-      }
-      setUploadedPermit(file);
-    } else {
-      alert('Please upload a PDF file');
-    }
-  };
-
-  // Validate permit
-  const validatePermit = () => {
-    if (permitMethod === 'digital') {
-      if (!digitalSignature.trim()) {
-        return { valid: false, message: 'Please provide your digital signature.' };
-      }
-      if (!permitName.trim()) {
-        return { valid: false, message: 'Please enter permit holder name.' };
-      }
-      if (!permitRole.trim()) {
-        return { valid: false, message: 'Please enter permit holder role.' };
-      }
-      if (digitalSignature.length < 3) {
-        return { valid: false, message: 'Signature must be at least 3 characters.' };
-      }
-    } else {
-      if (!uploadedPermit) {
-        return { valid: false, message: 'Please upload a permit document (PDF).' };
-      }
-    }
-    return { valid: true };
-  };
-
-  // Validate booking data
+  // Improved booking validation and error handling
   const validateBookingData = () => {
     if (selectedSeats.length === 0) {
       return { valid: false, message: 'Please select at least one seat.' };
@@ -256,34 +243,36 @@ const AirplaneSeatBooking = () => {
       return { valid: false, message: 'Please select a room.' };
     }
 
-    if (!bookingType) {
-      return { valid: false, message: 'Please select booking type (Single or Room).' };
-    }
-
-    // Check dates for room booking
-    if (bookingType === 'room') {
-      const firstSeat = selectedSeats[0];
-      const seatData = dateTimeInputs[firstSeat];
+    // Check if all required fields are filled
+    for (const seatId of selectedSeats) {
+      const seatData = dateTimeInputs[seatId];
       
-      if (!seatData || !seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
-        return { valid: false, message: 'Please fill in all booking details.' };
+      if (!seatData) {
+        return { valid: false, message: `Please fill in all fields for seat ${seatId}.` };
       }
-    } else {
-      // Check all seats for single booking
-      for (const seatId of selectedSeats) {
-        const seatData = dateTimeInputs[seatId];
-        
-        if (!seatData || !seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
-          return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
-        }
+      
+      if (!seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
+        return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
+      }
+
+      // Validate dates
+      const dateIn = new Date(seatData.dateIn);
+      const dateOut = new Date(seatData.dateOut);
+      
+      if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+        return { valid: false, message: `Invalid date format for seat ${seatId}.` };
+      }
+      
+      if (dateOut < dateIn) {
+        return { valid: false, message: `End date must be after start date for seat ${seatId}.` };
       }
     }
 
     return { valid: true };
   };
 
-  // Proceed to permit form
-  const proceedToPermit = () => {
+  // Enhanced booking handler with better error handling
+  const handleBooking = async () => {
     const validation = validateBookingData();
     
     if (!validation.valid) {
@@ -291,71 +280,67 @@ const AirplaneSeatBooking = () => {
       return;
     }
 
-    setShowPermitForm(true);
-  };
-
-  // Handle final booking with permit
-  const handleFinalBooking = async () => {
-    const permitValidation = validatePermit();
-    
-    if (!permitValidation.valid) {
-      alert(permitValidation.message);
-      return;
-    }
-
     setIsLoading(true);
 
-    // Create payload
+    // Create payload with proper structure - NOW USES SESSION USERNAME
     const payload = {
-      username: username,
-      major: major,
+      username: username, // Uses session data
+      major:major,
       room: selectedAirplane.id,
-      bookingType: bookingType,
       seats: selectedSeats.map(seatId => ({
         seat: seatId,
         date_in: dateTimeInputs[seatId].dateIn,
         date_out: dateTimeInputs[seatId].dateOut,
         period_time: dateTimeInputs[seatId].periodTime,
       })),
-      permit: permitMethod === 'digital' ? {
-        type: 'digital',
-        signature: digitalSignature,
-        permitName: permitName,
-        permitRole: permitRole,
-        timestamp: new Date().toISOString()
-      } : {
-        type: 'uploaded',
-        fileName: uploadedPermit.name,
-        fileSize: uploadedPermit.size
-      }
     };
 
     console.log("Booking payload:", payload);
 
-    // Simulate API call
     try {
-      // In production, send to your API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!\n\nPermit ${permitMethod === 'digital' ? 'signed' : 'uploaded'} by: ${permitMethod === 'digital' ? permitName : 'Document uploaded'}`);
-      
-      // Reset form
-      setSelectedSeats([]);
-      setDateTimeInputs({});
-      setShowPermitForm(false);
-      setBookingType(null);
-      setDigitalSignature('');
-      setPermitName('');
-      setPermitRole('');
-      setUploadedPermit(null);
-      setSelectedAirplane(null);
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+      });
+
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+
+      if (response.ok) {
+        alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
+        setSelectedSeats([]);
+        setDateTimeInputs({});
+        setShowBookingForm(false);
+        // Refresh reservations after successful booking
+        await fetchReservations();
+      } else {
+        // Handle specific error cases
+        const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
+        console.error('Booking failed:', response.status, errorMessage);
+        alert(`Booking failed: ${errorMessage}`);
+      }
     } catch (error) {
-      console.error('Booking error:', error);
+      console.error('Network or parsing error:', error);
       alert(`An error occurred while booking: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Reset selections when airplane changes
+  useEffect(() => {
+    setSelectedSeats([]);
+    setDateTimeInputs({});
+  }, [selectedAirplane]);
 
   // Render seat
   const renderSeat = (seat) => {
@@ -370,7 +355,7 @@ const AirplaneSeatBooking = () => {
     } else if (seat.selected) {
       seatClasses += " bg-blue-500 border-blue-600 text-white transform scale-110";
     } else {
-      seatClasses += bookingType === 'room' ? " bg-gray-200 border-gray-400 cursor-not-allowed" : " bg-green-100 border-green-400 text-green-800 hover:bg-green-200";
+      seatClasses += " bg-green-100 border-green-400 text-green-800 hover:bg-green-200";
     }
 
     return (
@@ -378,9 +363,9 @@ const AirplaneSeatBooking = () => {
         key={seat.id}
         className={seatClasses}
         onClick={() => handleSeatClick(seat.id, seat.occupied, seat.unused)}
-        title={`Seat ${seat.id}`}
+        title={`Seat ${seat.id} - ${seat.section} ${seat.unused ? '(Not Available)' : seat.occupied ? '(Occupied)' : '(Available)'}`}
       >
-        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3" /> : seat.selected ? <Check className="w-3 h-3" /> : seat.letter}
+        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3 text-white" /> : seat.selected ? <Check className="w-3 h-3 text-white" /> : seat.letter}
       </div>
     );
   };
@@ -412,412 +397,197 @@ const AirplaneSeatBooking = () => {
     );
   };
 
-  // Booking Table
+  // Enhanced BookingTable component with better validation feedback
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
-      {/* Booking Type Selection - Now inside booking table */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-blue-800">Booking Summary</h3>
-        <div className="flex gap-3">
-          <button
-            onClick={() => handleBookingTypeSelect('single')}
-            className={`px-4 py-2 rounded-lg border-2 transition-all ${
-              bookingType === 'single'
-                ? 'border-blue-500 bg-blue-500 text-white'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              <span className="font-medium">Single</span>
-            </div>
-          </button>
-          <button
-            onClick={() => handleBookingTypeSelect('room')}
-            className={`px-4 py-2 rounded-lg border-2 transition-all ${
-              bookingType === 'room'
-                ? 'border-purple-500 bg-purple-500 text-white'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Users2 className="w-4 h-4" />
-              <span className="font-medium">Room</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Number of seats selector for single booking */}
-      {bookingType === 'single' && (
-        <div className="flex items-center gap-3 p-3 mb-4 border-blue-300 rounded-lg">
-          <span className="font-medium text-gray-700">Number of seats:</span>
-          <select
-            value={maxSeats}
-            onChange={(e) => {
-              const newMax = parseInt(e.target.value);
-              setMaxSeats(newMax);
-              if (selectedSeats.length > newMax) {
-                setSelectedSeats(selectedSeats.slice(0, newMax));
-              }
-            }}
-            className="px-3 py-2 font-medium text-blue-700 bg-blue-50 border-2 border-blue-300 rounded-lg"
-          >
-            {[1,2,3,4,5,6,7,8,9,10].map(num => (
-              <option key={num} value={num}>{num} {num === 1 ? 'seat' : 'seats'}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
       
-      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-        <div>
-          <p><strong>Username:</strong> {username}</p>
-          <p><strong>Major:</strong> {major}</p>
-          <p><strong>Room:</strong> {selectedAirplane?.name}</p>
-        </div>
-        <div>
-          <p><strong>Booking Type:</strong> <span className="px-2 py-1 text-black">{bookingType === 'room' ? ' Room' : 'Single'}</span></p>
-          <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
-        </div>
+      <div className="mb-4 text-sm">
+        <p><strong>Username:</strong> {username}</p>
+        <p><strong>Major:</strong> {major}</p>
+        <p><strong>Room:</strong> {selectedAirplane?.name}</p>
+        <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
+        {session?.user?.email && (
+          <p><strong>Email:</strong> {session.user.email}</p>
+        )}
       </div>
 
-      {bookingType === 'room' ? (
-        // Single form for entire room
-        <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
-          <h4 className="mb-3 font-semibold text-gray-700">Room Booking Details ({selectedSeats.length} seats)</h4>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">Date In</label>
-              <input 
-                type="date" 
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={dateTimeInputs[selectedSeats[0]]?.dateIn || ''}
-                onChange={(e) => handleDateTimeChange(selectedSeats[0], 'dateIn', e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">Date Out</label>
-              <input 
-                type="date" 
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={dateTimeInputs[selectedSeats[0]]?.dateOut || ''}
-                onChange={(e) => handleDateTimeChange(selectedSeats[0], 'dateOut', e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">Period Time</label>
-              <select 
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={dateTimeInputs[selectedSeats[0]]?.periodTime || 'choose'}
-                onChange={(e) => handleDateTimeChange(selectedSeats[0], 'periodTime', e.target.value)}
-                required
-              >
-                <option value="choose">Choose time</option>
-                <option value="9:00-12:00">9:00 - 12:00</option>
-                <option value="13:00-16:00">13:00 - 16:00</option>
-                <option value="9:00-16:00">9:00 - 16:00</option>
-              </select>
-            </div>
-          </div>
-          <div className="mt-3 text-xs text-gray-600">
-            <p>Selected seats: {selectedSeats.join(', ')}</p>
-          </div>
-        </div>
-      ) : (
-        // Individual seat table
-        <div className="overflow-x-auto">
-          <table className="w-full bg-white border border-gray-300 rounded-lg">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase border-b">Seat ID</th>
-                <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase border-b">Date In</th>  
-                <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase border-b">Date Out</th>
-                <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase border-b">Period Time</th>
-                <th className="px-4 py-3 text-xs font-medium text-left text-gray-500 uppercase border-b">Action</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {selectedSeats.map((seatId) => {
-                const seatData = dateTimeInputs[seatId] || {};
-                
-                return (
-                  <tr key={seatId} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{seatId}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <input 
-                        type="date" 
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        value={seatData.dateIn || ''}
-                        onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
-                        required
-                      /> 
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <input 
-                        type="date" 
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        value={seatData.dateOut || ''}
-                        onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
-                        required
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <select 
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        value={seatData.periodTime || 'choose'}
-                        onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
-                        required
-                      >
-                        <option value="choose">Choose time</option>
-                        <option value="9:00-12:00">9:00 - 12:00</option>
-                        <option value="13:00-16:00">13:00 - 16:00</option>
-                        <option value="9:00-16:00">9:00 - 16:00</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => handleRemoveSeat(seatId)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <div className="overflow-x-auto">
+        <table className="w-full bg-white border border-gray-300 rounded-lg">
+          <thead>
+            <tr className="bg-gray-50">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Seat ID
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Date In
+              </th>  
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Date Out
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Period Time
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Status
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {selectedSeats.map((seatId, index) => {
+              const seatData = dateTimeInputs[seatId] || {};
+              const isComplete = seatData.dateIn && seatData.dateOut && seatData.periodTime && seatData.periodTime !== 'choose';
+              
+              return (
+                <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <div className="flex items-center">
+                      <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
+                        <Check className="w-3 h-3" />
+                      </div>
+                      {seatId}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <input 
+                      type="date" 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.dateIn ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.dateIn || ''}
+                      onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
+                      required
+                    /> 
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <input 
+                      type="date" 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.dateOut ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.dateOut || ''}
+                      onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
+                      required
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <select 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.periodTime || seatData.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.periodTime || 'choose'}
+                      onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
+                      required
+                    >
+                      <option value="choose">Choose your time</option>
+                      <option value="9:00-12:00">9:00 - 12:00</option>
+                      <option value="13:00-16:00">13:00 - 16:00</option>
+                      <option value="9:00-16:00">9:00 - 16:00</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      isComplete 
+                        ? 'text-green-800 bg-green-100' 
+                        : 'text-yellow-800 bg-yellow-100'
+                    }`}>
+                      {isComplete ? 'Ready' : 'Incomplete'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <button
+                      onClick={() => handleRemoveSeat(seatId)}
+                      className="text-red-600 transition-colors duration-200 hover:text-red-800"
+                      title="Remove seat"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedSeats.length === 0 && (
+        <div className="py-8 text-center text-gray-500">
+          No seats selected
         </div>
       )}
 
-      <button
-        onClick={proceedToPermit}
-        className="px-6 py-2 mt-4 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-      >
-        Proceed to Permit Authorization
-      </button>
-    </div>
-  );
-
-  // Permit Form
-  const PermitForm = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-2xl max-h-screen p-6 overflow-y-auto bg-white rounded-lg shadow-xl">
-        <h2 className="mb-6 text-2xl font-bold text-gray-800">Permit Authorization Required</h2>
-        
-        {/* Method Selection - HIGHLIGHTED */}
-        <div className="p-4 mb-6 border-4 border-yellow-400 rounded-lg bg-yellow-50">
-          <h3 className="mb-4 text-lg font-semibold text-yellow-900">⚡ RECOMMENDED: Choose Authorization Method</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setPermitMethod('digital')}
-              className={`p-4 border-2 rounded-lg transition-all ${
-                permitMethod === 'digital' 
-                  ? 'border-green-500 bg-green-50' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <PenTool className="w-8 h-8 mx-auto mb-2 text-green-600" />
-              <h4 className="font-semibold">Digital Signature</h4>
-              <p className="text-xs text-gray-600">✅ Faster & Recommended</p>
-            </button>
-            <button
-              onClick={() => setPermitMethod('upload')}
-              className={`p-4 border-2 rounded-lg transition-all ${
-                permitMethod === 'upload' 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-              <h4 className="font-semibold">Upload PDF</h4>
-              <p className="text-xs text-gray-600">For formal documents</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Digital Signature Form */}
-        {permitMethod === 'digital' && (
-          <div className="p-4 mb-6 border border-green-300 rounded-lg bg-green-50">
-            <h3 className="flex items-center mb-4 text-lg font-semibold text-green-800">
-              <PenTool className="w-5 h-5 mr-2" />
-              Digital Signature (Recommended)
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Permit Holder Name *
-                </label>
-                <input
-                  type="text"
-                  value={permitName}
-                  onChange={(e) => setPermitName(e.target.value)}
-                  placeholder="Enter full name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Role/Position *
-                </label>
-                <input
-                  type="text"
-                  value={permitRole}
-                  onChange={(e) => setPermitRole(e.target.value)}
-                  placeholder="e.g., Department Head, Supervisor"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">
-                  Digital Signature * (Type your name)
-                </label>
-                <input
-                  type="text"
-                  value={digitalSignature}
-                  onChange={(e) => setDigitalSignature(e.target.value)}
-                  placeholder="Type your signature here"
-                  className="w-full px-4 py-3 text-2xl italic font-bold border-2 border-gray-400 rounded-lg font-serif focus:ring-2 focus:ring-green-500"
-                  style={{ fontFamily: 'Brush Script MT, cursive' }}
-                  required
-                />
-                {digitalSignature && (
-                  <p className="mt-2 text-sm text-green-600">✓ Signature preview: <span className="text-2xl italic font-bold font-serif">{digitalSignature}</span></p>
-                )}
-              </div>
-              <div className="p-3 text-sm text-green-800 bg-green-100 rounded">
-                <p className="font-semibold">✅ Why Digital Signature?</p>
-                <ul className="mt-2 ml-4 text-xs list-disc">
-                  <li>Instant processing</li>
-                  <li>Automatic timestamp & audit trail</li>
-                  <li>No file size limits</li>
-                  <li>Mobile-friendly</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PDF Upload Form */}
-        {permitMethod === 'upload' && (
-          <div className="p-4 mb-6 border border-blue-300 rounded-lg bg-blue-50">
-            <h3 className="flex items-center mb-4 text-lg font-semibold text-blue-800">
-              <FileText className="w-5 h-5 mr-2" />
-              Upload Permit Document (PDF)
-            </h3>
-            <div className="space-y-4">
-              <div className="p-4 border-2 border-dashed border-gray-300 rounded-lg">
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileUpload}
-                  className="w-full"
-                  id="permit-upload"
-                />
-                <label htmlFor="permit-upload" className="block mt-2 text-sm text-center text-gray-600 cursor-pointer">
-                  {uploadedPermit ? (
-                    <span className="text-green-600">✓ {uploadedPermit.name} ({(uploadedPermit.size / 1024).toFixed(1)} KB)</span>
-                  ) : (
-                    <span>Click to upload PDF (Max 5MB)</span>
-                  )}
-                </label>
-              </div>
-              <div className="p-3 text-sm text-blue-800 bg-blue-100 rounded">
-                <p className="font-semibold">📄 PDF Upload Guidelines:</p>
-                <ul className="mt-2 ml-4 text-xs list-disc">
-                  <li>Must be signed permit document</li>
-                  <li>Maximum file size: 5MB</li>
-                  <li>PDF format only</li>
-                  <li>Ensure document is legible</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setShowPermitForm(false)}
-            className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleFinalBooking}
-            disabled={isLoading}
-            className={`px-6 py-2 font-medium text-white rounded-lg ${
-              isLoading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-green-600 hover:bg-green-700'
-            }`}
-          >
-            {isLoading ? 'Processing...' : '✓ Confirm Booking with Permit'}
-          </button>
-        </div>
-      </div>
+      {selectedSeats.length > 0 && (
+        <button
+          onClick={handleBooking}
+          disabled={isLoading}
+          className={`px-6 py-2 mt-4 font-medium text-white rounded-lg transition-colors duration-200 ${
+            isLoading 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          {isLoading ? 'Booking...' : 'Confirm Booking'}
+        </button>
+      )}
     </div>
   );
 
   return (
     <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
       <div className="p-6 bg-white rounded-lg shadow-lg">
-        <h1 className="mb-6 text-3xl font-bold text-gray-800">Computer Room Booking System</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
+         {/* <div className="text-sm text-gray-600">
+            Logged in as: <span className="font-semibold">{username}</span>
+          </div>*/}
+        </div>
 
-        {/* Room Selection */}
+        {/* Airplane Selection */}
         <div className="mb-8">
+          <h2 className="mb-4 text-xl font-semibold text-gray-700">Select Room</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             {airplanes.map((airplane) => (
               <div
                 key={airplane.id}
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                className={`border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 ${
                   selectedAirplane?.id === airplane.id
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-300 hover:border-gray-400'
                 }`}
-                onClick={() => {
-                  setSelectedAirplane(airplane);
-                  setBookingType(null);
-                  setSelectedSeats([]);
-                }}
+                onClick={() => setSelectedAirplane(airplane)}
               >
-                <h3 className="mb-2 text-lg font-bold text-center text-gray-800">{airplane.name}</h3>
-                <p className="text-sm text-center text-gray-600">Capacity: {airplane.capacity}</p>
-                <p className="text-sm text-center text-gray-600">
-                  Available: {airplane.capacity - airplane.unused.length - (bookings[airplane.id]?.length || 0)}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-bold text-center text-gray-800">{airplane.name}</h3>
+                </div>
+                <p className="mb-1 text-sm text-center text-gray-600">Capacity: {airplane.capacity}</p>
+                <p className="mb-1 text-sm text-center text-gray-600">
+                  Occupied: {isLoading ? '...' : (bookings[airplane.id]?.length || 0)}
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-
+        {/* Passenger Count Selection */}
+        {selectedAirplane && (
+          <div className="mb-6">
+            <h2 className="mb-4 text-xl font-semibold text-gray-700">
+              Number of Reservations: <span className="px-3 py-1 text-white bg-blue-600 rounded">{selectedSeats.length}</span>
+            </h2>
+          </div>
+        )} 
 
         {/* Seat Map */}
         {selectedAirplane && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-             {/*  <h2 className="text-xl font-semibold text-gray-700">
-                {bookingType === 'room' ? 'Room Layout Preview' : bookingType === 'single' ? 'Select Your Seats' : 'Select Room and Booking Type'}
-              </h2> */}
-              {bookingType && (
-                <div className="text-sm">
-                  <span className="font-semibold">Selected:</span> {selectedSeats.length} {bookingType === 'room' ? `/ ${getAvailableSeats(selectedAirplane).length}` : `/ ${maxSeats}`}
-                </div>
-              )}
+              <h2 className="text-xl font-semibold text-gray-700">
+                Select Seats - {selectedAirplane.name}
+              </h2>
             </div>
-
-            {bookingType === 'room' && (
-              <div className="p-3 mb-4 text-sm text-green-800 bg-green-100 rounded">
-                ✓ All {selectedSeats.length} available seats have been automatically selected for room booking
-              </div>
-            )}
 
             {/* Legend */}
             <div className="flex justify-center gap-6 mb-6 text-sm">
@@ -848,11 +618,8 @@ const AirplaneSeatBooking = () => {
           </div>
         )}
 
-        {/* Booking Table - Always show when airplane selected */}
-        {selectedAirplane && <BookingTable />}
-
-        {/* Permit Form Modal */}
-        {showPermitForm && <PermitForm />}
+        {/* Booking Table */}
+        {selectedSeats.length > 0 && <BookingTable />}
       </div>
     </div>
   );
