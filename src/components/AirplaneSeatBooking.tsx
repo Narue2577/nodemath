@@ -1,8 +1,9 @@
 // src/components/AirplaneSeatBooking.tsx
+// src/components/AirplaneSeatBooking.tsx
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X,User,Users2 } from 'lucide-react';
 import { useSession } from "next-auth/react";
 
 /* eslint-disable */
@@ -20,7 +21,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-
+  const [bookingType, setBookingType] = useState(null); // 'single' or 'room'
   // Get username from session or fallback to prop
   const username =  session?.user?.name || tableHeader || 'Guest';
   const major = session?.user?.field || 'Not specified';
@@ -401,7 +402,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
       <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
-      
+         
       <div className="mb-4 text-sm">
         <p><strong>Username:</strong> {username}</p>
         <p><strong>Major:</strong> {major}</p>
@@ -577,7 +578,39 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
             <h2 className="mb-4 text-xl font-semibold text-gray-700">
               Number of Reservations: <span className="px-3 py-1 text-white bg-blue-600 rounded">{selectedSeats.length}</span>
             </h2>
+            <h2 className="mb-4 text-xl font-semibold text-gray-700">
+              Type of Reservations: 
+              <div className="flex gap-3">
+          <button
+            onClick={() => handleBookingTypeSelect('single')}
+            className={`px-4 py-2 rounded-lg border-2 transition-all ${
+              bookingType === 'single'
+                ? 'border-blue-500 bg-blue-500 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="font-medium">Single</span>
+            </div>
+          </button>
+          <button
+            onClick={() => handleBookingTypeSelect('room')}
+            className={`px-4 py-2 rounded-lg border-2 transition-all ${
+              bookingType === 'room'
+                ? 'border-purple-500 bg-purple-500 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Users2 className="w-4 h-4" />
+              <span className="font-medium">Room</span>
+            </div>
+          </button>
+        </div>
+            </h2>
           </div>
+          
         )} 
 
         {/* Seat Map */}
