@@ -1,149 +1,272 @@
-Here's how to properly check and fix `session.user.field` with NextAuth `useSession`:
+// 1. Install dependencies:
+// npm install nodemailer @types/nodemailer
+// npm install jsonwebtoken @types/jsonwebtoken
 
-## 1. **Check Session Status First**
+// 2. Create API route: app/api/send-permission/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
 
-```typescriptreact
-import { useSession } from "next-auth/react";
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-function YourComponent() {
-  const { data: session, status } = useSession();
-  
-  console.log('Status:', status);
-  console.log('Session:', session);
-  console.log('User:', session?.user);
-  
-  if (status === "loading") {
-    return <p>Loading...</p>;
+export async function POST(request: NextRequest) {
+  try {
+    const { email, permission, expiresIn = '7d' } = await request.json();
+
+    // Generate a secure token with permission details
+    const token = jwt.sign(
+      { email, permission, timestamp: Date.now() },
+      JWT_SECRET,
+      { expiresIn }
+    );
+
+    // Create confirmation link
+    const confirmLink = `${BASE_URL}/confirm-permission?token=${token}`;
+
+    // Configure email transporter (using Gmail as example)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD, // Use App Password for Gmail
+      },
+    });
+
+    // Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Permission Request Confirmation',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Permission Request</h2>
+          <p>You have been requested to grant the following permission:</p>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+            <strong>${permission}</strong>
+          </p>
+          <p>Click the button below to confirm your permission:</p>
+          <a href="${confirmLink}" 
+             style="display: inline-block; background: #0070f3; color: white; 
+                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
+                    margin: 20px 0;">
+            Confirm Permission
+          </a>
+          <p style="color: #666; font-size: 14px;">
+            This link will expire in 7 days.
+          </p>
+          <p style="color: #666; font-size: 14px;">
+            If you didn't expect this email, you can safely ignore it.
+          </p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Permission email sent successfully' 
+    });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to send email' },
+      { status: 500 }
+    );
   }
-  
-  if (status === "unauthenticated" || !session) {
-    return <p>Please log in</p>;
-  }
-  
+}
+
+// 3. Create confirmation page: app/confirm-permission/page.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+export default function ConfirmPermission() {
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (!token) {
+      setStatus('error');
+      setMessage('Invalid confirmation link');
+      return;
+    }
+
+    confirmPermission(token);
+  }, [searchParams]);
+
+  const confirmPermission = async (token: string) => {
+    try {
+      const response = await fetch('/api/confirm-permission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setStatus('success');
+        setMessage('Permission confirmed successfully!');
+      } else {
+        setStatus('error');
+        setMessage(data.error || 'Failed to confirm permission');
+      }
+    } catch (error) {
+      setStatus('error');
+      setMessage('An error occurred. Please try again.');
+    }
+  };
+
   return (
-    <div>
-      <p><strong>Position:</strong> {session.user?.field || 'N/A'}</p>
+    <div style={{ 
+      maxWidth: '600px', 
+      margin: '50px auto', 
+      padding: '20px',
+      textAlign: 'center' 
+    }}>
+      {status === 'loading' && <p>Confirming your permission...</p>}
+      {status === 'success' && (
+        <div style={{ color: 'green' }}>
+          <h2>✓ Success</h2>
+          <p>{message}</p>
+        </div>
+      )}
+      {status === 'error' && (
+        <div style={{ color: 'red' }}>
+          <h2>✗ Error</h2>
+          <p>{message}</p>
+        </div>
+      )}
     </div>
   );
 }
-```
 
-## 2. **Extend NextAuth Types**
+// 4. Create confirmation API: app/api/confirm-permission/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
 
-Create or update `types/next-auth.d.ts`:
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-```typescript
-import { DefaultSession } from "next-auth";
+export async function POST(request: NextRequest) {
+  try {
+    const { token } = await request.json();
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      field?: string;
-    } & DefaultSession["user"]
-  }
-  
-  interface User {
-    field?: string;
-  }
-}
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      email: string;
+      permission: string;
+      timestamp: number;
+    };
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    field?: string;
-  }
-}
-```
+    // Store permission in your database
+    // await db.permissions.create({
+    //   email: decoded.email,
+    //   permission: decoded.permission,
+    //   confirmedAt: new Date(),
+    // });
 
-## 3. **Configure NextAuth Callbacks**
-
-In your `[...nextauth].ts` or `route.ts`:
-
-```typescript
-import NextAuth from "next-auth";
-
-export default NextAuth({
-  providers: [
-    // your providers
-  ],
-  callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // Initial sign in
-      if (user) {
-        token.field = user.field;
-      }
-      
-      // Update session
-      if (trigger === "update" && session?.field) {
-        token.field = session.field;
-      }
-      
-      return token;
-    },
-    
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.field = token.field as string;
-      }
-      return session;
+    return NextResponse.json({
+      success: true,
+      data: {
+        email: decoded.email,
+        permission: decoded.permission,
+      },
+    });
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return NextResponse.json(
+        { success: false, error: 'Link has expired' },
+        { status: 400 }
+      );
     }
+    return NextResponse.json(
+      { success: false, error: 'Invalid or expired token' },
+      { status: 400 }
+    );
   }
-});
-```
+}
 
-## 4. **Ensure SessionProvider Wraps Your App**
+// 5. Example usage in a component:
+// app/components/PermissionForm.tsx
+'use client';
 
-```typescriptreact
-// app/layout.tsx (App Router)
-import { SessionProvider } from "next-auth/react";
+import { useState } from 'react';
 
-export default function RootLayout({ children }) {
+export default function PermissionForm() {
+  const [email, setEmail] = useState('');
+  const [permission, setPermission] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/send-permission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, permission }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage('Permission email sent successfully!');
+        setEmail('');
+        setPermission('');
+      } else {
+        setMessage('Failed to send email. Please try again.');
+      }
+    } catch (error) {
+      setMessage('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <html>
-      <body>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
-      </body>
-    </html>
+    <form onSubmit={handleSubmit} style={{ maxWidth: '400px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '15px' }}>
+        <label>Email:</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={{ width: '100%', padding: '8px' }}
+        />
+      </div>
+      <div style={{ marginBottom: '15px' }}>
+        <label>Permission:</label>
+        <input
+          type="text"
+          value={permission}
+          onChange={(e) => setPermission(e.target.value)}
+          required
+          style={{ width: '100%', padding: '8px' }}
+        />
+      </div>
+      <button 
+        type="submit" 
+        disabled={loading}
+        style={{ width: '100%', padding: '10px' }}
+      >
+        {loading ? 'Sending...' : 'Send Permission Request'}
+      </button>
+      {message && <p style={{ marginTop: '15px' }}>{message}</p>}
+    </form>
   );
 }
-```
 
-## 5. **Check Where `field` Comes From**
-
-Make sure `field` is set during sign in:
-
-```typescript
-// In your provider or authorize function
-async authorize(credentials) {
-  const user = await getUserFromDb(credentials);
-  
-  return {
-    id: user.id,
-    email: user.email,
-    field: user.position, // Make sure this exists!
-  };
-}
-```
-
-## Quick Debug Checklist:
-
-1. ✅ Is `SessionProvider` wrapping your component?
-2. ✅ Does `status === "authenticated"`?
-3. ✅ Is `field` being set in the JWT callback?
-4. ✅ Is `field` being passed to session in the session callback?
-5. ✅ Are TypeScript types properly extended?
-
-What's the actual error or behavior you're seeing?
-
-
-ให้นิสิตนำ Assignment Frontend เรื่อง Bootstrap ล่าสุดเรื่อง Arduino/Raspberry pi (ที่ทำเป็น VDO) มาแก้ไขในรูปแบบ ประสานกับ Backend ที่เรียนเรื่อง Node.js โดยมีข้อกำหนดดังนี้
-
-1. ให้สร้าง Database ใหม่ชื่อ iOTShop โดยมี Table ดังนี้
-   Member ไว้เก็บข้อมูลสมาชิก เช่น Fullname / DOB / phone / email /password/ address / stampdate 
-โดยมี email เป็น PK
-2. ให้ปรับ Frontend Menu เพิ่มหน้า Login ถ้าพบว่าไม่มี email อยู่ในระบบจะแนะนำให้ลงทะเบียนสมาชิกใหม่  หรือสมัครใหม่ผ่านลิ้งค์สำหรับลงทะเบียนสมาชิกใหม่แสดงอยู่ด้านล่าง ในหน้าเดียวกับ Login
-3. กำหนดให้ลงทะเบียนข้อมูลตามโครงสร้าง Table Member ห้ามใช้อีเมลซ้ำ ระบบจะแจ้งเตือน
-4. กำหนดให้เฉพาะหน้าแรก และหน้าลงทะเบียนสมาชิกใหม่เท่านั้นที่เข้าได้ทั่วไป หน้าอื่นๆ ที่เหลือบังคับต้อง Login ก่อนเท่านั้น
-5. มีลิ้งค์สำหรับการทำ Forgot password โดยกำหนดให้ส่ง password ชั่วคราวทางอีเมล
-6. รหัสผ่านจะต้องเข้ารหัส bcrypt+salt เท่านั้นก่อนบันทึกลงใน database
+// 6. Environment variables (.env.local):
+// JWT_SECRET=your-super-secret-jwt-key-change-this
+// EMAIL_USER=your-email@gmail.com
+// EMAIL_PASSWORD=your-app-password
+// NEXT_PUBLIC_BASE_URL=http://localhost:3000
