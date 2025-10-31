@@ -2,15 +2,15 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Check, X, User, Users2 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { Check, X,User,Users2 } from 'lucide-react';
+import { useSession } from "next-auth/react";
 
-interface AirplaneSeatBookingProps {
-  tableHeader?: string;
+/* eslint-disable */
+interface AirplaneSeatBookingAdminProps {
+  tableHeader?: string; // This can be removed if you only use session
 }
 
-const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
-  // ⭐ FIXED: Move useSession to top
+const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tableHeader }) => {
   const { data: session, status } = useSession();
   
   const [selectedAirplane, setSelectedAirplane] = useState(null);
@@ -19,23 +19,19 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
-  const [bookingType, setBookingType] = useState(null); // 'single' or 'room';
-  const [maxSeats, setMaxSeats] = useState(1);
-  
-  // Bulk datetime input for all seats
-  const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
-    dateIn: '',
-    dateOut: '',
-    periodTime: 'choose'
-  });
-  
   const [isLoading, setIsLoading] = useState(false);
-  
-  // ⭐ FIXED: Get username from session first, then fallback
-  const username =  session?.user?.name || tableHeader || 'Staff';
-  const position =  session?.user?.field || 'Not specified';
-
-  // Loading state
+  const [bookingType, setBookingType] = useState('single'); // 'single' or 'room'
+  const [maxSeats, setMaxSeats] = useState(1);
+   // Bulk datetime input for all seats
+  const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
+      dateIn: '',
+      dateOut: '',
+      periodTime: 'choose'
+  });
+  // Get username from session or fallback to prop
+  const username =  session?.user?.name || tableHeader || 'Guest';
+  const major = session?.user?.field || 'Not specified';
+  // Show loading state while checking authentication
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -44,13 +40,13 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   }
 
-  // Optional: Require authentication for admin
+  // Optional: Require authentication
   if (status === "unauthenticated") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="p-8 text-center bg-white rounded-lg shadow-lg">
-          <h2 className="mb-4 text-2xl font-bold text-gray-800">Admin Access Required</h2>
-          <p className="mb-6 text-gray-600">Please sign in to access the admin booking system.</p>
+          <h2 className="mb-4 text-2xl font-bold text-gray-800">Authentication Required</h2>
+          <p className="mb-6 text-gray-600">Please sign in to book seats.</p>
           <button
             onClick={() => window.location.href = '/api/auth/signin'}
             className="px-6 py-2 text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
@@ -62,9 +58,11 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   }
 
-  console.log("Admin Session:", session);
-  console.log("Admin Username:", username);
-
+  console.log("Session Data:", session);
+  console.log("Using username:", username);
+  console.log('Field:', session?.user?.field);
+  
+  // Sample airplane data with different configurations
   const airplanes = [
     {
       id: 'room601',
@@ -128,42 +126,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     }
   ];
 
-  // Get all available seats for a room
-  const getAvailableSeats = (airplane) => {
-    const allSeats = [];
-    airplane.layout.forEach((section) => {
-      const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
-      for (let row = 1; row <= section.rows; row++) {
-        seatLetters.forEach((letter) => {
-          const seatId = `${row}${letter}`;
-          if (!airplane.unused.includes(seatId) && !bookings[airplane.id]?.includes(seatId)) {
-            allSeats.push(seatId);
-          }
-        });
-      }
-    });
-    return allSeats;
-  };
-
-
-  const handleBookingTypeSelect = (type) => {
-    // Don't reset if already in this mode
-    if (bookingType === type) return;
-    
-    setBookingType(type);
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-    
-    if (type === 'room') {
-      // Auto-select all available seats
-      const availableSeats = getAvailableSeats(selectedAirplane);
-      setSelectedSeats(availableSeats);
-      setMaxSeats(availableSeats.length);
-    } else {
-      setMaxSeats(1); // Default to 1 for single booking
-    }
-  };
-
+  // Fetch reservations from database with better error handling
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
@@ -174,7 +137,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
 
       if (response.ok) {
         const data = await response.json();
-        const reservationsByRoom = {};
+        // Group reservations by room
+        const reservationsByRoom:any = {};
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
             if (reservation.room && reservation.seat) {
@@ -188,26 +152,30 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
         setBookings(reservationsByRoom);
       } else {
         console.warn('Failed to fetch reservations:', response.status);
+        // Don't show error to user for failed fetches, just use empty bookings
       }
     } catch (error) {
       console.error('Error fetching reservations:', error);
+      // Fallback to empty bookings if API is not available
       setBookings({});
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Load reservations when component mounts
   useEffect(() => {
     fetchReservations();
   }, []);
 
+  // Generate seat map for an airplane
   const generateSeatMap = (airplane) => {
-    const seatMap = [];
+    const seatMap:any[] = [];
     let currentRow = 1;
 
     airplane.layout.forEach((section) => {
       for (let row = 0; row < section.rows; row++) {
-        const rowSeats = [];
+        const rowSeats:any[] = [];
         const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
         
         seatLetters.forEach((letter) => {
@@ -235,6 +203,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     return seatMap;
   };
 
+  // Handle seat selection
   const handleSeatClick = (seatId, occupied, unused) => {
     if (occupied || unused) return;
 
@@ -248,133 +217,203 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       }
     }
   };
-
-  const handleRemoveSeat = (seatId) => {
-    setSelectedSeats(selectedSeats.filter(id => id !== seatId));
+  // Get all available seats for a room
+  const getAvailableSeats = (airplane) => {
+    const allSeats:any[] = [];
+    airplane.layout.forEach((section) => {
+      const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
+      for (let row = 1; row <= section.rows; row++) {
+        seatLetters.forEach((letter) => {
+          const seatId = `${row}${letter}`;
+          if (!airplane.unused.includes(seatId) && !bookings[airplane.id]?.includes(seatId)) {
+            allSeats.push(seatId);
+          }
+        });
+      }
+    });
+    return allSeats;
   };
 
-  const handleBulkDateTimeChange = (field, value) => {
+
+    // Handle booking type selection
+  const handleBookingTypeSelect = (type) => {
+    // Don't reset if already in this mode
+    if (bookingType === type) return;
+    
+    setBookingType(type);
+    setSelectedSeats([]);
+    setDateTimeInputs({});
+    
+    if (type === 'room') {
+      // Auto-select all available seats
+      const availableSeats = getAvailableSeats(selectedAirplane);
+      setSelectedSeats(availableSeats);
+      setMaxSeats(availableSeats.length);
+    } else {
+      setMaxSeats(1); // Default to 1 for single booking
+    }
+  };
+
+
+  // Handle removing a seat from the booking table
+  const handleRemoveSeat = (seatId) => {
+    setSelectedSeats(selectedSeats.filter(id => id !== seatId));
+    // Remove datetime inputs for removed seat
+    setDateTimeInputs(prev => {
+      const newInputs:any = { ...prev };
+      delete newInputs[seatId];
+      return newInputs;
+    });
+  };
+
+  // Handle datetime input changes - Fixed validation
+  const handleDateTimeChange = (seatId, field, value) => {
+    setDateTimeInputs(prev => ({
+      ...prev,
+      [seatId]: {
+        ...prev[seatId],
+        [field]: value
+      }
+    }));
+  };
+const handleBulkDateTimeChange = (field, value) => {
     setBulkDateTimeInputs(prev => ({
       ...prev,
       [field]: value
     }));
   };
-
+  
+  // Improved booking validation and error handling
   const validateBookingData = () => {
-    if (selectedSeats.length === 0) {
-      return { valid: false, message: 'Please select at least one seat.' };
-    }
+  if (selectedSeats.length === 0) {
+    return { valid: false, message: 'Please select at least one seat.' };
+  }
 
-    if (!selectedAirplane) {
-      return { valid: false, message: 'Please select a room.' };
-    }
+  if (!selectedAirplane) {
+    return { valid: false, message: 'Please select a room.' };
+  }
 
+  // FOR ROOM BOOKINGS: Use bulkDateTimeInputs (single set of dates for all seats)
+  if (bookingType === 'room') {
     if (!bulkDateTimeInputs.dateIn || !bulkDateTimeInputs.dateOut || !bulkDateTimeInputs.periodTime || bulkDateTimeInputs.periodTime === 'choose') {
       return { valid: false, message: 'Please complete all date and time fields.' };
     }
 
     const dateIn = new Date(bulkDateTimeInputs.dateIn);
     const dateOut = new Date(bulkDateTimeInputs.dateOut);
-    
+
     if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
       return { valid: false, message: 'Invalid date format.' };
     }
-    
+
     if (dateOut < dateIn) {
       return { valid: false, message: 'End date must be after start date.' };
     }
 
     return { valid: true };
-  };
+  }
 
+  // FOR SINGLE SEAT BOOKINGS: Use dateTimeInputs (separate dates for each seat)
+  if (bookingType === 'single') {
+    for (const seatId of selectedSeats) {
+      const seatData = dateTimeInputs[seatId];
+      
+      if (!seatData) {
+        return { valid: false, message: `Please fill in all fields for seat ${seatId}.` };
+      }
+      
+      if (!seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
+        return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
+      }
+
+      const dateIn = new Date(seatData.dateIn);
+      const dateOut = new Date(seatData.dateOut);
+
+      if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+        return { valid: false, message: `Invalid date format for seat ${seatId}.` };
+      }
+      
+      if (dateOut < dateIn) {
+        return { valid: false, message: `End date must be after start date for seat ${seatId}.` };
+      }
+    }
+  }
+
+  return { valid: true };
+};
+
+  // Enhanced booking handler with better error handling
   const handleBooking = async () => {
-    const validation = validateBookingData();
-    
-    if (!validation.valid) {
-      alert(validation.message);
-      return;
-    }
+  const validation = validateBookingData();
+  
+  if (!validation.valid) {
+    alert(validation.message);
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    // ⭐ FIXED: Now uses session username
-    const payload = {
-      username: username,
-      major:position,
-      room: selectedAirplane.id,
-      seats: selectedSeats.map(seatId => ({
-        seat: seatId,
-        date_in: bulkDateTimeInputs.dateIn,
-        date_out: bulkDateTimeInputs.dateOut,
-        period_time: bulkDateTimeInputs.periodTime,
-      })),
-    };
-
-    console.log("Admin booking payload:", payload);
-
-    try {
-      const response = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload),
-      });
-
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (response.ok) {
-        alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
-        setSelectedSeats([]);
-        setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
-        setShowBookingForm(false);
-        await fetchReservations();
-      } else {
-        const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
-        console.error('Booking failed:', response.status, errorMessage);
-        alert(`Booking failed: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error('Network or parsing error:', error);
-      alert(`An error occurred while booking: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+  // Create payload - only dates differ based on booking type
+  const payload = {
+    username: username,
+    major:major ,
+    room: selectedAirplane.id,
+    seats: selectedSeats.map(seatId => ({
+      seat: seatId,
+      date_in: bookingType === 'single' ? dateTimeInputs[seatId].dateIn : bulkDateTimeInputs.dateIn,
+      date_out: bookingType === 'single' ? dateTimeInputs[seatId].dateOut : bulkDateTimeInputs.dateOut,
+      period_time: bookingType === 'single' ? dateTimeInputs[seatId].periodTime : bulkDateTimeInputs.periodTime,
+    })),
   };
 
-  // Auto-select all available seats when room changes
-  useEffect(() => {
-    if (selectedAirplane) {
-      const allSeats = [];
-      let currentRow = 1;
-      
-      selectedAirplane.layout.forEach((section) => {
-        for (let row = 0; row < section.rows; row++) {
-          const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
-          seatLetters.forEach((letter) => {
-            const seatId = `${currentRow}${letter}`;
-            if (!selectedAirplane.unused.includes(seatId) && !bookings[selectedAirplane.id]?.includes(seatId)) {
-              allSeats.push(seatId);
-            }
-          });
-          currentRow++;
-        }
-      });
-      
-      setSelectedSeats(allSeats);
-    } else {
-      setSelectedSeats([]);
-    }
-    setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
-  }, [selectedAirplane, bookings]);
+  console.log("Booking payload:", payload);
 
+  try {
+    const response = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      throw new Error('Invalid response from server');
+    }
+
+    if (response.ok) {
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
+      setSelectedSeats([]);
+      setDateTimeInputs({});
+      setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
+      setShowBookingForm(false);
+      await fetchReservations();
+    } else {
+      const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
+      console.error('Booking failed:', response.status, errorMessage);
+      alert(`Booking failed: ${errorMessage}`);
+    }
+  } catch (error) {
+    console.error('Network or parsing error:', error);
+    alert(`An error occurred while booking: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // Reset selections when airplane changes
+  useEffect(() => {
+    setBookingType('single');
+    setSelectedSeats([]);
+    setDateTimeInputs({});
+  }, [selectedAirplane]);
+
+  // Render seat
   const renderSeat = (seat) => {
     const baseClasses = "w-8 h-8 border-2 flex items-center justify-center text-xs font-medium cursor-pointer transition-all duration-200";
     
@@ -402,6 +441,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   };
 
+  // Render seat row
   const renderSeatRow = (row) => {
     const seatElements = [];
     const seatPattern = row.seatWidth.split('');
@@ -428,50 +468,23 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
     );
   };
 
-  // ⭐ FIXED: BookingTable now uses session username
+  // Enhanced BookingTable component with better validation feedback
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
-      <div className="flex gap-3">
-        <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary (Admin)</h3>
-                <button
-                  onClick={() => handleBookingTypeSelect('single')}
-                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                    bookingType === 'single'
-                      ? 'border-blue-500 bg-blue-500 text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    <span className="font-medium">Single</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleBookingTypeSelect('room')}
-                  className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                    bookingType === 'room'
-                      ? 'border-purple-500 bg-purple-500 text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users2 className="w-4 h-4" />
-                    <span className="font-medium">Room</span>
-                  </div>
-                </button>
-              </div>
+      <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
+         
       <div className="mb-4 text-sm">
-        <p><strong>Staff Name:</strong> {username}</p>
-        <p><strong>Major:</strong> {position}</p>
+        <p><strong>Username:</strong> {username}</p>
+        <p><strong>Major:</strong> {major}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
         {session?.user?.email && (
           <p><strong>Email:</strong> {session.user.email}</p>
         )}
       </div>
-
-      {/* Bulk date/time inputs for all seats */}
-      <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
+     
+        {(bookingType === 'room') &&
+        <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
         <h4 className="mb-3 font-semibold text-gray-700">Set Date & Time for All Seats</h4>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
@@ -516,8 +529,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         </div>
       </div>
-
-      {/* Simplified table showing just seat IDs */}
+}
+      {(bookingType === 'single')  &&
       <div className="overflow-x-auto">
         <table className="w-full bg-white border border-gray-300 rounded-lg">
           <thead>
@@ -526,36 +539,99 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
                 Seat ID
               </th>
               <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Date In
+              </th>  
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Date Out
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Period Time
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+                Status
+              </th>
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
                 Action
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {selectedSeats.map((seatId, index) => (
-              <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                  <div className="flex items-center">
-                    <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
-                      <Check className="w-3 h-3" />
+            {selectedSeats.map((seatId, index) => {
+              const seatData = dateTimeInputs[seatId] || {};
+              const isComplete = seatData.dateIn && seatData.dateOut && seatData.periodTime && seatData.periodTime !== 'choose';
+              
+              return (
+                <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <div className="flex items-center">
+                      <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
+                        <Check className="w-3 h-3" />
+                      </div>
+                      {seatId}
                     </div>
-                    {seatId}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  <button
-                    onClick={() => handleRemoveSeat(seatId)}
-                    className="text-red-600 transition-colors duration-200 hover:text-red-800"
-                    title="Remove seat"
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <input 
+                      type="date" 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.dateIn ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.dateIn || ''}
+                      onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
+                      required
+                    /> 
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <input 
+                      type="date" 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.dateOut ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.dateOut || ''}
+                      onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
+                      required
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    <select 
+                      className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        !seatData.periodTime || seatData.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                      value={seatData.periodTime || 'choose'}
+                      onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
+                      required
+                    >
+                      <option value="choose">Choose your time</option>
+                      <option value="9:00-12:00">9:00 - 12:00</option>
+                      <option value="13:00-16:00">13:00 - 16:00</option>
+                      <option value="9:00-16:00">9:00 - 16:00</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      isComplete 
+                        ? 'text-green-800 bg-green-100' 
+                        : 'text-yellow-800 bg-yellow-100'
+                    }`}>
+                      {isComplete ? 'Ready' : 'Incomplete'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <button
+                      onClick={() => handleRemoveSeat(seatId)}
+                      className="text-red-600 transition-colors duration-200 hover:text-red-800"
+                      title="Remove seat"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-
+}
       {selectedSeats.length === 0 && (
         <div className="py-8 text-center text-gray-500">
           No seats selected
@@ -583,11 +659,12 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
       <div className="p-6 bg-white rounded-lg shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Computer Seat Booking System</h1>
-          {/*<div className="text-sm text-gray-600">
-            Admin: <span className="font-semibold">{username}</span>
+         {/* <div className="text-sm text-gray-600">
+            Logged in as: <span className="font-semibold">{username}</span>
           </div>*/}
         </div>
 
+        {/* Airplane Selection */}
         <div className="mb-8">
           <h2 className="mb-4 text-xl font-semibold text-gray-700">Select Room</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
@@ -613,14 +690,48 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         </div>
 
+        {/* Passenger Count Selection */}
         {selectedAirplane && (
           <div className="mb-6">
             <h2 className="mb-4 text-xl font-semibold text-gray-700">
               Number of Reservations: <span className="px-3 py-1 text-white bg-blue-600 rounded">{selectedSeats.length}</span>
             </h2>
+            <h2 className="mb-4 text-xl font-semibold text-gray-700">
+              Type of Reservations: 
+              <div className="flex gap-3">
+          <button
+            onClick={() => handleBookingTypeSelect('single')}
+            className={`px-4 py-2 rounded-lg border-2 transition-all ${
+              bookingType === 'single'
+                ? 'border-blue-500 bg-blue-500 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              <span className="font-medium">Single</span>
+            </div>
+          </button>
+          <button
+            onClick={() => handleBookingTypeSelect('room')}
+            className={`px-4 py-2 rounded-lg border-2 transition-all ${
+              bookingType === 'room'
+                ? 'border-blue-500 bg-blue-500 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Users2 className="w-4 h-4" />
+              <span className="font-medium">Room</span>
+            </div>
+          </button>
+        </div>
+            </h2>
           </div>
+          
         )} 
 
+        {/* Seat Map */}
         {selectedAirplane && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -629,6 +740,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
               </h2>
             </div>
 
+            {/* Legend */}
             <div className="flex justify-center gap-6 mb-6 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-100 border-2 border-green-400"></div>
@@ -648,6 +760,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
               </div>
             </div>
 
+            {/* Seat Map */}
             <div className="p-6 overflow-y-auto bg-gray-100 rounded-lg max-h-96">
               <div className="flex flex-col items-center">
                 {generateSeatMap(selectedAirplane).map(renderSeatRow)}
@@ -656,6 +769,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingProps> = ({ tableHea
           </div>
         )}
 
+        {/* Booking Table */}
         {selectedSeats.length > 0 && <BookingTable />}
       </div>
     </div>

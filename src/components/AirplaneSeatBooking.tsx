@@ -1,5 +1,4 @@
 // src/components/AirplaneSeatBooking.tsx
-// src/components/AirplaneSeatBooking.tsx
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -16,12 +15,19 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const [passengerCount, setPassengerCount] = useState(4);
+  const [passengerCount, setPassengerCount] = useState(10);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookings, setBookings] = useState({});
   const [dateTimeInputs, setDateTimeInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [bookingType, setBookingType] = useState(null); // 'single' or 'room'
+  const [bookingType, setBookingType] = useState('single'); // 'single' or 'room'
+  const [maxSeats, setMaxSeats] = useState(1);
+   // Bulk datetime input for all seats
+  const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
+      dateIn: '',
+      dateOut: '',
+      periodTime: 'choose'
+  });
   // Get username from session or fallback to prop
   const username =  session?.user?.name || tableHeader || 'Guest';
   const major = session?.user?.field || 'Not specified';
@@ -132,7 +138,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       if (response.ok) {
         const data = await response.json();
         // Group reservations by room
-        const reservationsByRoom = {};
+        const reservationsByRoom:any = {};
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
             if (reservation.room && reservation.seat) {
@@ -164,12 +170,12 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
   // Generate seat map for an airplane
   const generateSeatMap = (airplane) => {
-    const seatMap = [];
+    const seatMap:any[] = [];
     let currentRow = 1;
 
     airplane.layout.forEach((section) => {
       for (let row = 0; row < section.rows; row++) {
-        const rowSeats = [];
+        const rowSeats:any[] = [];
         const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
         
         seatLetters.forEach((letter) => {
@@ -211,13 +217,50 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       }
     }
   };
+  // Get all available seats for a room
+  const getAvailableSeats = (airplane) => {
+    const allSeats:any[] = [];
+    airplane.layout.forEach((section) => {
+      const seatLetters = section.seatWidth.replace(/\s+/g, '').split('');
+      for (let row = 1; row <= section.rows; row++) {
+        seatLetters.forEach((letter) => {
+          const seatId = `${row}${letter}`;
+          if (!airplane.unused.includes(seatId) && !bookings[airplane.id]?.includes(seatId)) {
+            allSeats.push(seatId);
+          }
+        });
+      }
+    });
+    return allSeats;
+  };
+
+
+    // Handle booking type selection
+  const handleBookingTypeSelect = (type) => {
+    // Don't reset if already in this mode
+    if (bookingType === type) return;
+    
+    setBookingType(type);
+    setSelectedSeats([]);
+    setDateTimeInputs({});
+    
+    if (type === 'room') {
+      // Auto-select all available seats
+      const availableSeats = getAvailableSeats(selectedAirplane);
+      setSelectedSeats(availableSeats);
+      setMaxSeats(availableSeats.length);
+    } else {
+      setMaxSeats(1); // Default to 1 for single booking
+    }
+  };
+
 
   // Handle removing a seat from the booking table
   const handleRemoveSeat = (seatId) => {
     setSelectedSeats(selectedSeats.filter(id => id !== seatId));
     // Remove datetime inputs for removed seat
     setDateTimeInputs(prev => {
-      const newInputs = { ...prev };
+      const newInputs:any = { ...prev };
       delete newInputs[seatId];
       return newInputs;
     });
@@ -233,18 +276,45 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       }
     }));
   };
-
+const handleBulkDateTimeChange = (field, value) => {
+    setBulkDateTimeInputs(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
   // Improved booking validation and error handling
   const validateBookingData = () => {
-    if (selectedSeats.length === 0) {
-      return { valid: false, message: 'Please select at least one seat.' };
+  if (selectedSeats.length === 0) {
+    return { valid: false, message: 'Please select at least one seat.' };
+  }
+
+  if (!selectedAirplane) {
+    return { valid: false, message: 'Please select a room.' };
+  }
+
+  // FOR ROOM BOOKINGS: Use bulkDateTimeInputs (single set of dates for all seats)
+  if (bookingType === 'room') {
+    if (!bulkDateTimeInputs.dateIn || !bulkDateTimeInputs.dateOut || !bulkDateTimeInputs.periodTime || bulkDateTimeInputs.periodTime === 'choose') {
+      return { valid: false, message: 'Please complete all date and time fields.' };
     }
 
-    if (!selectedAirplane) {
-      return { valid: false, message: 'Please select a room.' };
+    const dateIn = new Date(bulkDateTimeInputs.dateIn);
+    const dateOut = new Date(bulkDateTimeInputs.dateOut);
+
+    if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+      return { valid: false, message: 'Invalid date format.' };
     }
 
-    // Check if all required fields are filled
+    if (dateOut < dateIn) {
+      return { valid: false, message: 'End date must be after start date.' };
+    }
+
+    return { valid: true };
+  }
+
+  // FOR SINGLE SEAT BOOKINGS: Use dateTimeInputs (separate dates for each seat)
+  if (bookingType === 'single') {
     for (const seatId of selectedSeats) {
       const seatData = dateTimeInputs[seatId];
       
@@ -256,10 +326,9 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
       }
 
-      // Validate dates
       const dateIn = new Date(seatData.dateIn);
       const dateOut = new Date(seatData.dateOut);
-      
+
       if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
         return { valid: false, message: `Invalid date format for seat ${seatId}.` };
       }
@@ -268,77 +337,78 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         return { valid: false, message: `End date must be after start date for seat ${seatId}.` };
       }
     }
+  }
 
-    return { valid: true };
-  };
+  return { valid: true };
+};
 
   // Enhanced booking handler with better error handling
   const handleBooking = async () => {
-    const validation = validateBookingData();
-    
-    if (!validation.valid) {
-      alert(validation.message);
-      return;
-    }
+  const validation = validateBookingData();
+  
+  if (!validation.valid) {
+    alert(validation.message);
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    // Create payload with proper structure - NOW USES SESSION USERNAME
-    const payload = {
-      username: username, // Uses session data
-      major:major,
-      room: selectedAirplane.id,
-      seats: selectedSeats.map(seatId => ({
-        seat: seatId,
-        date_in: dateTimeInputs[seatId].dateIn,
-        date_out: dateTimeInputs[seatId].dateOut,
-        period_time: dateTimeInputs[seatId].periodTime,
-      })),
-    };
-
-    console.log("Booking payload:", payload);
-
-    try {
-      const response = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload),
-      });
-
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (response.ok) {
-        alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
-        setSelectedSeats([]);
-        setDateTimeInputs({});
-        setShowBookingForm(false);
-        // Refresh reservations after successful booking
-        await fetchReservations();
-      } else {
-        // Handle specific error cases
-        const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
-        console.error('Booking failed:', response.status, errorMessage);
-        alert(`Booking failed: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error('Network or parsing error:', error);
-      alert(`An error occurred while booking: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+  // Create payload - only dates differ based on booking type
+  const payload = {
+    username: username,
+    major:major ,
+    room: selectedAirplane.id,
+    seats: selectedSeats.map(seatId => ({
+      seat: seatId,
+      date_in: bookingType === 'single' ? dateTimeInputs[seatId].dateIn : bulkDateTimeInputs.dateIn,
+      date_out: bookingType === 'single' ? dateTimeInputs[seatId].dateOut : bulkDateTimeInputs.dateOut,
+      period_time: bookingType === 'single' ? dateTimeInputs[seatId].periodTime : bulkDateTimeInputs.periodTime,
+    })),
   };
+
+  console.log("Booking payload:", payload);
+
+  try {
+    const response = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      throw new Error('Invalid response from server');
+    }
+
+    if (response.ok) {
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
+      setSelectedSeats([]);
+      setDateTimeInputs({});
+      setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
+      setShowBookingForm(false);
+      await fetchReservations();
+    } else {
+      const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
+      console.error('Booking failed:', response.status, errorMessage);
+      alert(`Booking failed: ${errorMessage}`);
+    }
+  } catch (error) {
+    console.error('Network or parsing error:', error);
+    alert(`An error occurred while booking: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Reset selections when airplane changes
   useEffect(() => {
+    setBookingType('single');
     setSelectedSeats([]);
     setDateTimeInputs({});
   }, [selectedAirplane]);
@@ -412,7 +482,55 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
           <p><strong>Email:</strong> {session.user.email}</p>
         )}
       </div>
-
+     
+        {(bookingType === 'room') &&
+        <div className="p-4 mb-4 bg-white border border-gray-300 rounded-lg">
+        <h4 className="mb-3 font-semibold text-gray-700">Set Date & Time for All Seats</h4>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Date In</label>
+            <input 
+              type="date" 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.dateIn ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.dateIn}
+              onChange={(e) => handleBulkDateTimeChange('dateIn', e.target.value)}
+              required
+            /> 
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Date Out</label>
+            <input 
+              type="date" 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.dateOut ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.dateOut}
+              onChange={(e) => handleBulkDateTimeChange('dateOut', e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700">Period Time</label>
+            <select 
+              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !bulkDateTimeInputs.periodTime || bulkDateTimeInputs.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+              value={bulkDateTimeInputs.periodTime}
+              onChange={(e) => handleBulkDateTimeChange('periodTime', e.target.value)}
+              required
+            >
+              <option value="choose">Choose your time</option>
+              <option value="9:00-12:00">9:00 - 12:00</option>
+              <option value="13:00-16:00">13:00 - 16:00</option>
+              <option value="9:00-16:00">9:00 - 16:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+}
+      {(bookingType === 'single')  &&
       <div className="overflow-x-auto">
         <table className="w-full bg-white border border-gray-300 rounded-lg">
           <thead>
@@ -513,7 +631,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
           </tbody>
         </table>
       </div>
-
+}
       {selectedSeats.length === 0 && (
         <div className="py-8 text-center text-gray-500">
           No seats selected
@@ -598,8 +716,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
             onClick={() => handleBookingTypeSelect('room')}
             className={`px-4 py-2 rounded-lg border-2 transition-all ${
               bookingType === 'room'
-                ? 'border-purple-500 bg-purple-500 text-white'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300'
+                ? 'border-blue-500 bg-blue-500 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
             }`}
           >
             <div className="flex items-center gap-2">
