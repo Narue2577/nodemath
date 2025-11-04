@@ -1,112 +1,67 @@
-// app/reset-password/page.tsx
-'use client'
-import Link from "next/link";
-import Image from "next/image";
-import React, { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+'use client';
 
-const PasswordPage: React.FC = () => {
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'teacher'>('student');
-  const [error, setError] = useState<string>('');
-  const [isPending, setIsPending] = useState(false);
-  const router = useRouter();
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+export default function ConfirmPermission() {
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [message, setMessage] = useState('');
 
-    if (!password) {
-      setError('Please fill in all fields.');
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (!token) {
+      setStatus('error');
+      setMessage('Invalid confirmation link');
       return;
     }
 
-    setIsPending(true);
-    setError('');
+    confirmPermission(token);
+  }, [searchParams]);
 
+  const confirmPermission = async (token: string) => {
     try {
-      const result = await signIn('credentials', {
-        password,
-        redirect: false,
+      const response = await fetch('/api/confirm-permission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
       });
 
-      if (result?.error) {
-        setError('Invalid credentials. Please try again.');
+      const data = await response.json();
+
+      if (data.success) {
+        setStatus('success');
+        setMessage('Permission confirmed successfully!');
       } else {
-        // Get the session to check user role and redirect accordingly
-        const session = await getSession();
-        if (session?.user) {
-          const userRole = (session.user as any).role;
-          
-          // Redirect based on role
-          if (userRole === 'student') {
-            router.push('/dashboard/student');
-          } else if (userRole === 'teacher') {
-            router.push('/dashboard/admin');
-          }
-        }
+        setStatus('error');
+        setMessage(data.error || 'Failed to confirm permission');
       }
     } catch (error) {
-      setError('An error occurred during login.');
-      console.error('Login error:', error);
-    } finally {
-      setIsPending(false);
+      setStatus('error');
+      setMessage('An error occurred. Please try again.');
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-lg p-8 bg-white rounded-lg shadow-md">
-       
-        <div className="relative flex flex-col items-center justify-center w-full mb-6">
-          <Image src="/swuEng.png" width={150} height={150} alt="SWU Logo" />
+    <div style={{ 
+      maxWidth: '600px', 
+      margin: '50px auto', 
+      padding: '20px',
+      textAlign: 'center' 
+    }}>
+      {status === 'loading' && <p>Confirming your permission...</p>}
+      {status === 'success' && (
+        <div style={{ color: 'green' }}>
+          <h2>✓ Success</h2>
+          <p>{message}</p>
         </div>
-
-     
-        
-       <h1 className="mb-6 text-3xl font-bold text-center text-gray-800">
-         Set the password
-        </h1>
-
-       
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            {/*<div>{session?.user.name}</div> */}
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          
-          
-         
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-          
-          <button
-            type="submit"
-            className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
-            disabled={isPending}
-          >
-            {isPending ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-       
-        <div className="mt-6 text-center">
-          <Link href="/auth/login" className="text-sm text-indigo-500 hover:text-indigo-700 transition duration-300">
-             Login
-          </Link>
+      )}
+      {status === 'error' && (
+        <div style={{ color: 'red' }}>
+          <h2>✗ Error</h2>
+          <p>{message}</p>
         </div>
-      </div>
+      )}
     </div>
   );
-};
-
-export default PasswordPage;
-
+}
