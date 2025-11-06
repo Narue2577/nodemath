@@ -1,31 +1,45 @@
-// pages/api/auth/forget-password.ts
+// src/app/api/forget-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, permission, expiresIn = '7d' } = await request.json();
+    const { email } = await request.json();
 
-    // Generate a secure token with permission details
-    const token = jwt.sign(
-      { email, permission, timestamp: Date.now() },
-      JWT_SECRET,
-      { expiresIn }
-    );
+    // Validate email
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: 'Email is required' },
+        { status: 400 }
+      );
+    }
 
-    // Create confirmation link
-    const confirmLink = `${BASE_URL}/confirm-permission?token=${token}`;
+    // TODO: Check if email exists in your database
+    // For now, we'll proceed (but in production, verify the email exists)
 
-    // Configure email transporter (using Gmail as example)
+    // Generate a secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    // TODO: Store token in database with expiration (1 hour)
+    // Example structure:
+    // await db.passwordResets.create({
+    //   email,
+    //   token: hashToken(token), // hash it before storing
+    //   expiresAt: new Date(Date.now() + 3600000) // 1 hour
+    // });
+
+    // Create reset link
+    const resetLink = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password?token=${token}`;
+
+    // Configure email transporter
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'naruesorn@g.swu.ac.th',
-        pass: "Gale8!s15", // Use App Password for Gmail
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // App Password from .env
       },
     });
 
@@ -33,37 +47,45 @@ export async function POST(request: NextRequest) {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: 'Permission Request Confirmation',
+      subject: 'Password Reset Request',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Permission Request</h2>
-          <p>You have been requested to grant the following permission:</p>
-          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
-            <strong>${permission}</strong>
-          </p>
-          <p>Click the button below to confirm your permission:</p>
-          <a href="${confirmLink}" 
-             style="display: inline-block; background: #0070f3; color: white; 
+          <h2>Password Reset Request</h2>
+          <p>You requested to reset your password. Click the button below to reset it:</p>
+          
+          <a href="${resetLink}" 
+             style="display: inline-block; background: #4F46E5; color: white; 
                     padding: 12px 24px; text-decoration: none; border-radius: 5px; 
                     margin: 20px 0;">
-            Confirm Permission
+            Reset Password
           </a>
-          <p style="color: #666; font-size: 14px;">
-            This link will expire in 7 days.
+          
+          <p>Or copy and paste this link:</p>
+          <p style="background: #f5f5f5; padding: 10px; word-break: break-all;">
+            ${resetLink}
           </p>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">
+            This link will expire in 1 hour.
+          </p>
+          
           <p style="color: #666; font-size: 14px;">
-            If you didn't expect this email, you can safely ignore it.
+            If you didn't request this, you can safely ignore this email.
           </p>
         </div>
       `,
     };
 
+    // Send email
     await transporter.sendMail(mailOptions);
+
+    console.log(`Password reset email sent to: ${email}`);
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Permission email sent successfully' 
+      message: 'Password reset email sent successfully' 
     });
+
   } catch (error) {
     console.error('Error sending email:', error);
     return NextResponse.json(

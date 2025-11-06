@@ -270,3 +270,117 @@ export default function PermissionForm() {
 // EMAIL_USER=your-email@gmail.com
 // EMAIL_PASSWORD=your-app-password
 // NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+ใช้สำหรับ ลงเมล์
+
+เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติรายการยืม)
+
+    มีนิสิตได้ทำรายการยืมอุปกรณ์ครุภัณฑ์ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการยืม และอนุมัติหรือไม่อนุมัติรายการยืมดังกล่าว โดยกดปุ่มด้านล่าง
+ตรวจสอบและอนุมัติรายการยืม
+หรือเข้าไปที่เว็บไซต์ http://borrow-equipment.cosci.swu.ac.th/cosci-borrow/endorser/approve/10002
+
+หมายเหตุ: ต้องเข้าเว็บไซต์นี้ด้วย WiFi ของมหาวิทยาลัย หรือ เข้าผ่าน VPN (ดูวิธีการติดตั้งและใช้งาน VPN ที่ http://vpn.swu.ac.th)
+
+Forgot Password :nbvo eszf edxg lxpf
+
+// src/app/api/forget-password/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// Hash token for security
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email } = await request.json();
+
+    // Validate email
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: 'Email is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Don't reveal if email exists (security best practice)
+      // Still return success to prevent email enumeration
+      return NextResponse.json({ 
+        success: true, 
+        message: 'If that email exists, a reset link has been sent' 
+      });
+    }
+
+    // Generate secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = hashToken(token);
+
+    // Delete any existing password reset tokens for this user
+    await prisma.passwordReset.deleteMany({
+      where: { userId: user.id },
+    });
+
+    // Create new password reset token (expires in 1 hour)
+    await prisma.passwordReset.create({
+      data: {
+        userId: user.id,
+        token: hashedToken,
+        expiresAt: new Date(Date.now() + 3600000), // 1 hour
+      },
+    });
+
+    // Create reset link (use unhashed token in URL)
+    const resetLink = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password?token=${token}`;
+
+    // Configure email transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email content
+    const mailOptions = {
+      from: `"Your App Name" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>You requested to reset your password. Click the button below to reset it:</p>
+          
+          <a href="${resetLink}" 
+             style="display: inline-block; background: #4F46E5; color: white; 
+                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
+                    margin: 20px 0; font-weight: bold;">
+            Reset Password
+          </a>
+          
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="background: #f5f5f5; padding: 10px; word-break: break-all; border-radius: 5px;">
+            ${resetLink}
+          </p>
+          
+          <p style="color: #e74c3c; font-size: 14px; margin-top: 20px;">
+            ⏰ This link will expire in 1 hour.
+          </p>
+          
+          <p style="color: #666; font-size: 14px;">
+            If you didn't request this password reset, you can safely ignore this email. 
+            Your password will remain unchanged.
+          </p>
+          
