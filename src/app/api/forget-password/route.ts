@@ -1,13 +1,85 @@
 // src/app/api/forget-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import mysql from 'mysql2/promise';
 
-
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: 'cosci_system',
+};
 
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
+    // Check if email exists in student or staff table
+  const connection = await mysql.createConnection(dbConfig);
+  
+  const [studentRows] = await connection.execute(
+    'SELECT * FROM student WHERE stu_email = ?',
+    [email]
+  );
+  
+  const [staffRows] = await connection.execute(
+    'SELECT * FROM staff WHERE staff_email = ?',
+    [email]
+  );
+    const secret = process.env.JWT_SECRET ?? 'default-secret';
+     // Generate a secure token with permission details
+    const token = jwt.sign(
+  { 
+    email, 
+    permission: 'reset-password',
+    timestamp: Date.now() 
+  },
+  secret,
+  { expiresIn: '1h' }
+);
+     // Create confirmation link
+    const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password?token=${token}`;
+
+    // Configure email transporter (using Gmail as example)
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT || '587'),
+      secure: false,
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // Use App Password for Gmail
+      },
+    });
+
+    // Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Reset Your Password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>We received a request to reset your password.</h2>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+          This email is to confirm that you requested resetting a password.
+          This process required your confirmation by click the button below.
+          </p>
+          <a href="${confirmLink}" 
+             style="display: inline-block; background: #0070f3; color: white; 
+                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
+                    margin: 20px 0;">
+            Reset My Password
+          </a>
+          <p style="color: #666; font-size: 14px;">
+            This link will expire in 3 days.
+          </p>
+          <p style="color: #666; font-size: 14px;">
+            If you didn't expect this email, you can safely ignore it.
+          </p>
+        </div>
+      `,
+    };
+  
 
     // Validate email
     if (!email) {
@@ -20,8 +92,6 @@ export async function POST(request: NextRequest) {
     // TODO: Check if email exists in your database
     // For now, we'll proceed (but in production, verify the email exists)
 
-    // Generate a secure random token
-    const token = crypto.randomBytes(32).toString('hex');
     
     // TODO: Store token in database with expiration (1 hour)
     // Example structure:
@@ -31,61 +101,15 @@ export async function POST(request: NextRequest) {
     //   expiresAt: new Date(Date.now() + 3600000) // 1 hour
     // });
 
-    // Create reset link
-    const resetLink = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password?token=${token}`;
 
-    // Configure email transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // App Password from .env
-      },
-    });
-
-    // Email content
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Password Reset Request',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Password Reset Request</h2>
-          <p>You requested to reset your password. Click the button below to reset it:</p>
-          
-          <a href="${resetLink}" 
-             style="display: inline-block; background: #4F46E5; color: white; 
-                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
-                    margin: 20px 0;">
-            Reset Password
-          </a>
-          
-          <p>Or copy and paste this link:</p>
-          <p style="background: #f5f5f5; padding: 10px; word-break: break-all;">
-            ${resetLink}
-          </p>
-          
-          <p style="color: #666; font-size: 14px; margin-top: 20px;">
-            This link will expire in 1 hour.
-          </p>
-          
-          <p style="color: #666; font-size: 14px;">
-            If you didn't request this, you can safely ignore this email.
-          </p>
-        </div>
-      `,
-    };
 
     // Send email
     await transporter.sendMail(mailOptions);
 
-    console.log(`Password reset email sent to: ${email}`);
-
     return NextResponse.json({ 
       success: true, 
-      message: 'Password reset email sent successfully' 
+      message: 'Permission email sent successfully' 
     });
-
   } catch (error) {
     console.error('Error sending email:', error);
     return NextResponse.json(
