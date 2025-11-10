@@ -273,6 +273,34 @@ export default function PermissionForm() {
 
 ใช้สำหรับ ลงเมล์
 
+// Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'ขออนุมัติจาก บุคคลนั้น',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติจองห้องคอมพิวเตอร์)</h2>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+          This email is to confirm that you requested resetting a password.
+          This process required your confirmation by click the button below.
+          </p>
+          <a href="${confirmLink}" 
+             style="display: inline-block; background: #0070f3; color: white; 
+                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
+                    margin: 20px 0;">
+            Reset My Password
+          </a>
+          <p style="color: #666; font-size: 14px;">
+            This link will expire in 3 days.
+          </p>
+          <p style="color: #666; font-size: 14px;">
+            If you didn't expect this email, you can safely ignore it.
+          </p>
+        </div>
+      `,
+    };
+
 เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติรายการยืม)
 
     มีนิสิตได้ทำรายการยืมอุปกรณ์ครุภัณฑ์ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์

@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash the new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    //const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password in database
     const connection = await mysql.createConnection(dbConfig);
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       // Try updating student table first
       const [studentResult] = await connection.execute(
         'UPDATE student SET stu_password = ? WHERE stu_email = ?',
-        [hashedPassword, decoded.email]
+        [newPassword, decoded.email]
       );
       
       if ((studentResult as any).affectedRows > 0) {
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       // If not student, try staff table
       const [staffResult] = await connection.execute(
         'UPDATE staff SET staff_password = ? WHERE staff_email = ?',
-        [hashedPassword, decoded.email]
+        [newPassword, decoded.email]
       );
       
       if ((staffResult as any).affectedRows > 0) {

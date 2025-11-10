@@ -140,8 +140,8 @@ export async function POST(request: Request) {
 
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
-      (username, major, room, seat, date_in, date_out, period_time, status, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      (username, major, room, seat, date_in, date_out, period_time, Admin_permit, status, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?,'x', ?, NOW(), NOW())
     `;
 
     for (const seat of seats) {
@@ -169,6 +169,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+ // Create confirmation link
+    const confirmLink = ``;
+
+const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: 'porawanp@g.swu.ac.th',
+      subject: 'ขออนุมัติจาก บุคคลนั้น',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติจองห้องคอมพิวเตอร์)</h2>
+          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
+มีนิสิตได้ทำรายการจองที่นั่ง/ห้องของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
+ตรวจสอบและอนุมัติรายการจอง
+</p>
+          <a href="${confirmLink}" 
+             style="display: inline-block; background: #0070f3; color: white; 
+                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
+                    margin: 20px 0;">
+            อนุมัติ
+          </a>
+        </div>
+      `,
+    };
 
 // PUT method with auto-update for expired reservations
 export async function PUT(request: Request) {
