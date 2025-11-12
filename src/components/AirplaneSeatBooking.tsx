@@ -12,7 +12,10 @@ interface AirplaneSeatBookingProps {
 
 const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
   const { data: session, status } = useSession();
-  
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(10);
@@ -496,6 +499,7 @@ const handleBulkDateTimeChange = (field, value) => {
               }`}
               value={bulkDateTimeInputs.dateIn}
               onChange={(e) => handleBulkDateTimeChange('dateIn', e.target.value)}
+              min={minDate}
               required
             /> 
           </div>
@@ -508,6 +512,7 @@ const handleBulkDateTimeChange = (field, value) => {
               }`}
               value={bulkDateTimeInputs.dateOut}
               onChange={(e) => handleBulkDateTimeChange('dateOut', e.target.value)}
+              min={minDate}
               required
             />
           </div>
@@ -578,6 +583,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       }`}
                       value={seatData.dateIn || ''}
                       onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
+                      min={minDate}
                       required
                     /> 
                   </td>
@@ -589,6 +595,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       }`}
                       value={seatData.dateOut || ''}
                       onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
+                      min={minDate}
                       required
                     />
                   </td>

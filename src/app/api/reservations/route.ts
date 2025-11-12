@@ -1,9 +1,42 @@
 //api/reservations/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
+import nodemailer from 'nodemailer';
 
 // Helper function to check and update expired reservations
 /* eslint-disable */
+
+async function sendResetEmail(email: any, confirmLink:any) {
+    let testAccount = await nodemailer.createTestAccount();
+     const transporter = nodemailer.createTransport({
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false,
+        auth: {
+            user: testAccount.user,
+            pass: testAccount.pass
+        }
+    });
+  const info = await transporter.sendMail({
+        from: testAccount.user,
+        to: email,
+        subject: 'ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์',
+        html: `
+            <p>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติรายการจองห้อง)</p>
+            <p>มีนิสิตได้ทำรายการยืมอุปกรณ์ครุภัณฑ์ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการยืม และอนุมัติหรือไม่อนุมัติรายการยืมดังกล่าว โดยกดปุ่มด้านล่าง
+              ตรวจสอบและอนุมัติรายการยืม
+              </p>
+            <a href="${confirmLink}">อนุมัติ</a>
+            <p>ลิงค์นี้จะหมดอายุภายใน 1 ชั่วโมง</p>
+        `
+    });
+    
+    // Shows preview URL in console
+    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+
+}
+
 async function updateExpiredReservations(connection: any) {
   try {
     console.log('\n=== Checking for expired reservations ===');

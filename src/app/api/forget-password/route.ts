@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 );
      // Create confirmation link
     const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password?token=${token}`;
-
+  
     // Configure email transporter (using Gmail as example)
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,

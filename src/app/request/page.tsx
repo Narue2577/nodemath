@@ -48,6 +48,7 @@ export default function Request() {
     }
   };
 
+ 
   // Fetch data on component mount
   useEffect(() => {
     async function fetchData() {
@@ -142,6 +143,7 @@ export default function Request() {
                     <th className="px-4 py-2 border border-gray-300">Date In</th>
                     <th className="px-4 py-2 border border-gray-300">Date Out</th>
                     <th className="px-4 py-2 border border-gray-300">Period Time</th>
+                    <th className="px-4 py-2 border border-gray-300">Admin</th>
                     <th className="px-4 py-2 border border-gray-300">Status</th>
                     <th className="px-4 py-2 border border-gray-300">Action</th>
                   </tr>
@@ -157,6 +159,7 @@ export default function Request() {
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_in}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_out}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.period_time}</td>
+                          <td className="px-4 py-2 text-center border border-gray-300">{post.admin}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.status}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">
                             <button 

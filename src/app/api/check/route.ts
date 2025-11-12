@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     // ⭐ FIXED: Changed peroid_time to period_time (was misspelled)
     const selectQuery = `
-      SELECT id, room, seat, date_in, date_out, period_time, status
+      SELECT id, room, seat, date_in, date_out, period_time, status,admin
       FROM nodelogin.stud_reserv 
       WHERE username = ? AND status = 'occupied'
       ORDER BY created_at DESC
@@ -80,7 +80,8 @@ export async function GET(request: Request) {
       date_in:  formatDate(post.date_in),
       date_out: formatDate(post.date_out),
       period_time: post.period_time, // ⭐ FIXED: Changed from peroid_time to period_time
-      status: post.status
+      status: post.status,
+      admin: post.admin
     }));
  /*date_in: post.date_in ? new Date(post.date_in).toISOString().split('T')[0] : "N/A",
       date_out: post.date_out ? new Date(post.date_out).toISOString().split('T')[0] : "N/A", */
@@ -110,7 +111,7 @@ export async function PUT(request: Request) {
     await updateExpiredReservations(connection);
 
     // ⭐ FIXED: Changed peroid_time to period_time
-    const { username, room, seat, date_in, date_out, period_time, status } = await request.json();
+    const { username, room, seat, date_in, date_out, period_time, status, admin} = await request.json();
 
     if (!username || !room || !seat || !date_in || !date_out || !period_time || !status) {
       await connection.end();
