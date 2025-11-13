@@ -2,41 +2,10 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 // Helper function to check and update expired reservations
 /* eslint-disable */
-
-async function sendResetEmail(email: any, confirmLink:any) {
-    let testAccount = await nodemailer.createTestAccount();
-     const transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-            user: testAccount.user,
-            pass: testAccount.pass
-        }
-    });
-  const info = await transporter.sendMail({
-        from: testAccount.user,
-        to: email,
-        subject: 'ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์',
-        html: `
-            <p>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติรายการจองห้อง)</p>
-            <p>มีนิสิตได้ทำรายการยืมอุปกรณ์ครุภัณฑ์ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
-              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการยืม และอนุมัติหรือไม่อนุมัติรายการยืมดังกล่าว โดยกดปุ่มด้านล่าง
-              ตรวจสอบและอนุมัติรายการยืม
-              </p>
-            <a href="${confirmLink}">อนุมัติ</a>
-            <p>ลิงค์นี้จะหมดอายุภายใน 1 ชั่วโมง</p>
-        `
-    });
-    
-    // Shows preview URL in console
-    console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-
-}
-
 async function updateExpiredReservations(connection: any) {
   try {
     console.log('\n=== Checking for expired reservations ===');
@@ -66,7 +35,7 @@ async function updateExpiredReservations(connection: any) {
     const [countResult]: any = await connection.execute(`
       SELECT COUNT(*) as count
       FROM nodelogin.stud_reserv 
-      WHERE status = 'occupied' 
+      WHERE status = 'occupied' || 'pending' 
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
     
@@ -158,7 +127,7 @@ export async function POST(request: Request) {
     const seatIds = seats.map((s: any) => s.seat);
     const checkQuery = `
       SELECT seat FROM nodelogin.stud_reserv 
-      WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND status = 'occupied'
+      WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND (status = 'occupied' OR status = 'pending')
     `;
 
     const [existingSeats] = await connection.execute(checkQuery, [room, ...seatIds]);
@@ -166,15 +135,18 @@ export async function POST(request: Request) {
     if ((existingSeats as any[]).length > 0) {
       await connection.end();
       return NextResponse.json({
-        error: 'Some seats are already occupied',
+        error: 'Some seats are already occupied or pending approval',
         occupiedSeats: (existingSeats as any[]).map(row => row.seat)
       }, { status: 400 });
     }
 
+    // Generate unique approval token
+    const approvalToken = crypto.randomUUID();
+
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
-      (username, major, room, seat, date_in, date_out, period_time, Admin_permit, status, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?,'x', ?, NOW(), NOW())
+      (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'x', 'pending', ?, NOW(), NOW())
     `;
 
     for (const seat of seats) {
@@ -186,15 +158,93 @@ export async function POST(request: Request) {
         seat.date_in,
         seat.date_out,
         seat.period_time,
-        seat.status || 'occupied'
+        seat.status || 'occupied',
+        approvalToken
       ]);
     }
 
     await connection.end();
-    return NextResponse.json({ 
-      message: 'Reservations created successfully',
+
+    // Send confirmation email if email is provided
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          //host: "smtp.ethereal.email",
+          //port: 587,
+          //secure: false,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        const seatDetails = seats.map((seat: any) => `
+        <li>
+          Seat ${seat.seat}: ${seat.date_in} to ${seat.date_out} (${seat.period_time})
+        </li>
+      `).join('');
+
+        const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm`;
+        const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=reject`;
+
+         const info = await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: "naruesorn@g.swu.ac.th",
+          subject: "ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์",
+          html: `
+            <p>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติรายการจองห้อง)</p>
+            <p>ผม/ดิฉัน ชื่อ ${username} ได้ทำรายการจองห้องคอมพิวเตอร์  ${room} ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการยืม และอนุมัติหรือไม่อนุมัติรายการยืมดังกล่าว โดยกดปุ่มด้านล่าง
+              ตรวจสอบและอนุมัติรายการยืม
+              </p>
+              <ul>${seatDetails}</ul>
+              <p><strong>Requested:</strong> ${new Date().toLocaleString()}</p>
+            <hr>
+          <div style="margin: 30px 0;">
+            <a href="${confirmLink}" 
+               style="background-color: #4CAF50; 
+                      color: white; 
+                      padding: 15px 40px; 
+                      text-decoration: none; 
+                      border-radius: 5px; 
+                      font-size: 18px;
+                      font-weight: bold;
+                      display: inline-block;">
+              ✓ CONFIRM
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #666;">
+            <a href="${rejectLink}" style="color: #f44336;">Click here to reject</a>
+          </p>
+        `
+        });
+
+
+        //    <p>Dear ${username},</p>
+        //    <p>Your reservation has been confirmed:</p>
+        //    <p>Room: ${room}</p>
+       //     <p>Seats: ${seatIds.join(', ')}</p>
+       //     <a href="${confirmLink}">View Details</a>
+        console.log("Approval email sent!");
+    } catch (emailError) {
+      console.error('Email failed:', emailError);
+      }
+    
+
+   // return NextResponse.json({ 
+   //   message: 'Reservations created successfully',
+   //   count: seats.length,
+   //   expiredUpdated: expiredCount
+  //  });
+  //} catch (err) {
+  //  console.error('Database error:', err);
+ //   if (connection) await connection.end();
+ //   return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+ // }
+ return NextResponse.json({ 
+      message: 'Reservation submitted for approval',
       count: seats.length,
-      expiredUpdated: expiredCount
+      status: 'pending'
     });
   } catch (err) {
     console.error('Database error:', err);
@@ -202,30 +252,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
- // Create confirmation link
-    const confirmLink = ``;
+ 
 
-const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: 'porawanp@g.swu.ac.th',
-      subject: 'ขออนุมัติจาก บุคคลนั้น',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>เรียน ผศ.ดร.ปรวัน แพทยานนท์ (ผู้อนุมัติจองห้องคอมพิวเตอร์)</h2>
-          <p style="background: #f5f5f5; padding: 15px; border-radius: 5px;">
-มีนิสิตได้ทำรายการจองที่นั่ง/ห้องของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
-ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
-ตรวจสอบและอนุมัติรายการจอง
-</p>
-          <a href="${confirmLink}" 
-             style="display: inline-block; background: #0070f3; color: white; 
-                    padding: 12px 24px; text-decoration: none; border-radius: 5px; 
-                    margin: 20px 0;">
-            อนุมัติ
-          </a>
-        </div>
-      `,
-    };
+
 
 // PUT method with auto-update for expired reservations
 export async function PUT(request: Request) {

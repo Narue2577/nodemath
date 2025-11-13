@@ -269,6 +269,22 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
 
   // Handle datetime input changes - Fixed validation
   const handleDateTimeChange = (seatId, field, value) => {
+    const currentSeat = dateTimeInputs[seatId] || {};
+  
+  // Validate dateIn vs dateOut
+  if (field === 'dateIn' && currentSeat.dateOut) {
+    if (new Date(value) > new Date(currentSeat.dateOut)) {
+      alert('Check-in date cannot be after check-out date');
+      return;
+    }
+  }
+  
+  if (field === 'dateOut' && currentSeat.dateIn) {
+    if (new Date(value) < new Date(currentSeat.dateIn)) {
+      alert('Check-out date cannot be before check-in date');
+      return;
+    }
+  }
     setDateTimeInputs(prev => ({
       ...prev,
       [seatId]: {
@@ -278,6 +294,20 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
     }));
   };
 const handleBulkDateTimeChange = (field, value) => {
+  // Validate dateIn vs dateOut for bulk changes
+  if (field === 'dateIn' && bulkDateTimeInputs.dateOut) {
+    if (new Date(value) > new Date(bulkDateTimeInputs.dateOut)) {
+      alert('Check-in date cannot be after check-out date');
+      return;
+    }
+  }
+  
+  if (field === 'dateOut' && bulkDateTimeInputs.dateIn) {
+    if (new Date(value) < new Date(bulkDateTimeInputs.dateIn)) {
+      alert('Check-out date cannot be before check-in date');
+      return;
+    }
+  }
     setBulkDateTimeInputs(prev => ({
       ...prev,
       [field]: value
@@ -388,7 +418,7 @@ const handleBulkDateTimeChange = (field, value) => {
     }
 
     if (response.ok) {
-      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}! but you need to get confirmed by Admin. Please check your status of reservations`);
       setSelectedSeats([]);
       setDateTimeInputs({});
       setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
@@ -571,6 +601,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       {seatId}
                     </div>
                   </td>
+                  
                   <td className="px-4 py-3 text-sm text-gray-900">
                     <input 
                       type="date" 
