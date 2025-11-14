@@ -237,23 +237,38 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
 
 
     // Handle booking type selection
-  const handleBookingTypeSelect = (type) => {
+  const handleBookingTypeSelect = (type: 'single' | 'room') => {
     // Don't reset if already in this mode
     if (bookingType === type) return;
     
-    setBookingType(type);
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-    
-    if (type === 'room') {
-      // Auto-select all available seats
-      const availableSeats = getAvailableSeats(selectedAirplane);
-      setSelectedSeats(availableSeats);
-      setMaxSeats(availableSeats.length);
+      setBookingType(type);
+  
+  if (type === 'room') {
+    // Auto-select all available seats for room booking
+    const availableSeats = getAvailableSeats(selectedAirplane);
+    setSelectedSeats(availableSeats);
+    setMaxSeats(availableSeats.length);
+    // Keep existing dateTimeInputs or create new ones for all seats
+    const newDateTimeInputs: Record<string, { date: string; time: string }> = {};
+    availableSeats.forEach(seat => {
+      newDateTimeInputs[seat] = dateTimeInputs[seat] || { date: '', time: '' };
+    });
+    setDateTimeInputs(newDateTimeInputs);
+  } else {
+    // Switch to single booking mode
+    setMaxSeats(1);
+    // Keep only the first selected seat if any exist
+    if (selectedSeats.length > 0) {
+      const firstSeat = selectedSeats[0];
+      setSelectedSeats([firstSeat]);
+      // Keep only the dateTimeInput for the first seat
+      setDateTimeInputs({ [firstSeat]: dateTimeInputs[firstSeat] || { date: '', time: '' } });
     } else {
-      setMaxSeats(1); // Default to 1 for single booking
+      setSelectedSeats([]);
+      setDateTimeInputs({});
     }
-  };
+  }
+};
 
 
   // Handle removing a seat from the booking table

@@ -31,6 +31,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       dateOut: '',
       periodTime: 'choose'
   });
+  //ตัวเลือกโดยอาจารย์ที่ปรึกษาหรืออาตารย์ประจำวิชายืนยันทางออนไลน์
+  const [options, setOptions] = useState([]);
   // Get username from session or fallback to prop
   const username =  session?.user?.name || tableHeader || 'Guest';
   const major = session?.user?.field || 'Not specified';
@@ -166,6 +168,18 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
     }
   };
 
+  useEffect(() => {
+    fetch('/api/dropdown')
+      .then((res) => res.json())
+      .then((data) => {
+        setOptions(data);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error fetching data:', err);
+        setIsLoading(false);
+      });
+  }, []); 
   // Load reservations when component mounts
   useEffect(() => {
     fetchReservations();
@@ -239,23 +253,38 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
 
     // Handle booking type selection
-  const handleBookingTypeSelect = (type) => {
+  const handleBookingTypeSelect = (type: 'single' | 'room') => {
     // Don't reset if already in this mode
     if (bookingType === type) return;
     
-    setBookingType(type);
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-    
-    if (type === 'room') {
-      // Auto-select all available seats
-      const availableSeats = getAvailableSeats(selectedAirplane);
-      setSelectedSeats(availableSeats);
-      setMaxSeats(availableSeats.length);
+      setBookingType(type);
+  
+  if (type === 'room') {
+    // Auto-select all available seats for room booking
+    const availableSeats = getAvailableSeats(selectedAirplane);
+    setSelectedSeats(availableSeats);
+    setMaxSeats(availableSeats.length);
+    // Keep existing dateTimeInputs or create new ones for all seats
+    const newDateTimeInputs: Record<string, { date: string; time: string }> = {};
+    availableSeats.forEach(seat => {
+      newDateTimeInputs[seat] = dateTimeInputs[seat] || { date: '', time: '' };
+    });
+    setDateTimeInputs(newDateTimeInputs);
+  } else {
+    // Switch to single booking mode
+    setMaxSeats(1);
+    // Keep only the first selected seat if any exist
+    if (selectedSeats.length > 0) {
+      const firstSeat = selectedSeats[0];
+      setSelectedSeats([firstSeat]);
+      // Keep only the dateTimeInput for the first seat
+      setDateTimeInputs({ [firstSeat]: dateTimeInputs[firstSeat] || { date: '', time: '' } });
     } else {
-      setMaxSeats(1); // Default to 1 for single booking
+      setSelectedSeats([]);
+      setDateTimeInputs({});
     }
-  };
+  }
+};
 
 
   // Handle removing a seat from the booking table
@@ -644,19 +673,28 @@ const handleBulkDateTimeChange = (field, value) => {
           No seats selected
         </div>
       )}
-
+    
       {selectedSeats.length > 0 && (
+        <>
+           <hr></hr>
+           <br></br>
+           <label>กรุณาขออนุมัติจากอาจารย์ที่ปรึกษาหรืออาจารย์ประจำวิชา</label>
+           <select className="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body">
+          {options.map((option) => (
+           <option key={option.staff_id} value={option.staff_id}>
+          {option.staff_name}
+        </option>
+      ))}
+    </select>
         <button
           onClick={handleBooking}
           disabled={isLoading}
-          className={`px-6 py-2 mt-4 font-medium text-white rounded-lg transition-colors duration-200 ${
-            isLoading 
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          className={`px-6 py-2 mt-4 font-medium text-white rounded-lg transition-colors duration-200 ${isLoading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'}`}
         >
           {isLoading ? 'Booking...' : 'Confirm Booking'}
-        </button>
+        </button></>
       )}
     </div>
   );

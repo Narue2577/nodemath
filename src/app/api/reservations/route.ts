@@ -4,6 +4,8 @@ import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
+
+
 // Helper function to check and update expired reservations
 /* eslint-disable */
 async function updateExpiredReservations(connection: any) {
@@ -13,21 +15,21 @@ async function updateExpiredReservations(connection: any) {
     
     // First, let's see what we're working with
     const [occupiedRows]: any = await connection.execute(`
-      SELECT 
-        id,
-        username,
-        room,
-        seat,
-        date_out,
-        period_time,
-        status,
-        CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
-        NOW() as current_time,
-        CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
-      FROM nodelogin.stud_reserv 
-      WHERE status = 'occupied'
-      LIMIT 5
-    `);
+  SELECT 
+    id,
+    username,
+    room,
+    seat,
+    date_out,
+    period_time,
+    status,
+    CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
+    NOW() as current_timestamp,  -- ⭐ Changed name
+    CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
+  FROM nodelogin.stud_reserv 
+  WHERE (status = 'occupied' OR status = 'pending')
+  LIMIT 5
+`);
     
     console.log('Sample occupied reservations:', occupiedRows);
     
@@ -35,7 +37,7 @@ async function updateExpiredReservations(connection: any) {
     const [countResult]: any = await connection.execute(`
       SELECT COUNT(*) as count
       FROM nodelogin.stud_reserv 
-      WHERE status = 'occupied' || 'pending' 
+      WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
     
@@ -48,7 +50,7 @@ async function updateExpiredReservations(connection: any) {
     const query = `
       UPDATE nodelogin.stud_reserv 
       SET status = 'complete', updated_at = NOW()
-      WHERE status = 'occupied' 
+      WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `; 
 
@@ -81,7 +83,7 @@ export async function GET(request: Request) {
 
     const selectQuery = `
       SELECT room, seat, status, major FROM nodelogin.stud_reserv 
-      WHERE status = 'occupied'
+      WHERE (status = 'occupied' OR status = 'pending')
     `;
 
     const [reservations] = await connection.execute(selectQuery);
@@ -106,7 +108,8 @@ export async function POST(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME,
+      charset: 'utf8mb4' // ⭐ Add this
     });
 
     // First, update any expired reservations
@@ -124,7 +127,8 @@ export async function POST(request: Request) {
     }
 
     // Check if any seats are already occupied
-    const seatIds = seats.map((s: any) => s.seat);
+     const seatIds = seats.map((s: any) => s.seat);
+    const placeholders = seatIds.map(() => '?').join(',');
     const checkQuery = `
       SELECT seat FROM nodelogin.stud_reserv 
       WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND (status = 'occupied' OR status = 'pending')
@@ -146,24 +150,30 @@ export async function POST(request: Request) {
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
       (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'x', 'pending', ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
+    // ⭐ Insert with better error handling
     for (const seat of seats) {
-      await connection.execute(insertQuery, [
-        username,
-        major,
-        room,
-        seat.seat,
-        seat.date_in,
-        seat.date_out,
-        seat.period_time,
-        seat.status || 'occupied',
-        approvalToken
-      ]);
+      try {
+        console.log('Inserting seat:', seat.seat); // Debug log
+        await connection.execute(insertQuery, [
+          username,
+          major,
+          room,
+          seat.seat,
+          seat.date_in,
+          seat.date_out,
+          seat.period_time,
+          'x',
+          'pending',
+          approvalToken
+        ]);
+      } catch (insertError) {
+        console.error('Error inserting seat:', seat.seat, insertError);
+        throw insertError; // Re-throw to be caught by outer catch
+      }
     }
-
-    await connection.end();
 
     // Send confirmation email if email is provided
       try {
@@ -187,7 +197,7 @@ export async function POST(request: Request) {
         const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm`;
         const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=reject`;
 
-         const info = await transporter.sendMail({
+         await transporter.sendMail({
           from: process.env.EMAIL_USER,
           to: "naruesorn@g.swu.ac.th",
           subject: "ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์",
@@ -230,7 +240,7 @@ export async function POST(request: Request) {
       console.error('Email failed:', emailError);
       }
     
-
+   await connection.end();
    // return NextResponse.json({ 
    //   message: 'Reservations created successfully',
    //   count: seats.length,

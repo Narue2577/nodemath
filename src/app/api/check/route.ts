@@ -10,7 +10,7 @@ async function updateExpiredReservations(connection: any) {
     const query = `
       UPDATE nodelogin.stud_reserv 
       SET status = 'complete', updated_at = NOW()
-      WHERE status = 'occupied' 
+      WHERE (status = 'occupied' OR status = 'pending')
       AND STR_TO_DATE(
         CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00'),
         '%Y-%m-%d %H:%i:%s'
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
     const selectQuery = `
       SELECT id, room, seat, date_in, date_out, period_time, status,admin
       FROM nodelogin.stud_reserv 
-      WHERE username = ? AND status = 'occupied'
+      WHERE username = ? AND (status = 'occupied' OR status = 'pending')
       ORDER BY created_at DESC
     `;
 
