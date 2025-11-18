@@ -131,7 +131,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/reservations', {
+    //  const response = await fetch('/api/reservations', { original
+        const response = await fetch('/api/reservations?source=admin', { //18 Nov 2568
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -205,8 +206,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
   };
 
   // Handle seat selection
-  const handleSeatClick = (seatId, occupied, unused) => {
-    if (occupied || unused) return;
+  const handleSeatClick = (seatId, occupied, unused, pending) => {
+    if (occupied || unused || pending) return;
 
     if (selectedSeats.includes(seatId)) {
       setSelectedSeats(selectedSeats.filter(id => id !== seatId));
@@ -240,7 +241,8 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
   const handleBookingTypeSelect = (type: 'single' | 'room') => {
     // Don't reset if already in this mode
     if (bookingType === type) return;
-    
+      setSelectedSeats([]);
+      setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
       setBookingType(type);
   
   if (type === 'room') {
@@ -265,7 +267,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
       setDateTimeInputs({ [firstSeat]: dateTimeInputs[firstSeat] || { date: '', time: '' } });
     } else {
       setSelectedSeats([]);
-      setDateTimeInputs({});
+      setDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
     }
   }
 };
@@ -471,7 +473,9 @@ const handleBulkDateTimeChange = (field, value) => {
       seatClasses += " bg-red-500 border-red-600 text-white cursor-not-allowed";
     } else if (seat.selected) {
       seatClasses += " bg-blue-500 border-blue-600 text-white transform scale-110";
-    } else {
+    }  else if (seat.pending) {
+      seatClasses += " bg-yellow-500 border-yellow-600 text-white transform scale-110";
+    }else {
       seatClasses += " bg-green-100 border-green-400 text-green-800 hover:bg-green-200";
     }
 
@@ -801,6 +805,10 @@ const handleBulkDateTimeChange = (field, value) => {
                 <div className="w-4 h-4 bg-red-500 border-2 border-red-600"></div>
                 <span>Occupied</span>
               </div>
+             {/* <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-500 border-2 border-yellow-600"></div>
+                <span>Pending</span>
+              </div> */}
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-black border-2 border-gray-800"></div>
                 <span>Not Available</span>

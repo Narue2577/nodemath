@@ -135,7 +135,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/reservations', {
+      //  const response = await fetch('/api/reservations', { original
+        const response = await fetch('/api/reservations?source=student', { //18 Nov 2568
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });

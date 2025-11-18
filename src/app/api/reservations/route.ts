@@ -43,7 +43,7 @@ async function updateExpiredReservations(connection: any) {
     
     console.log('Reservations to expire:', countResult[0].count);
     
-    // ⭐ FIXED: Added ':00' for seconds to make proper datetime comparison
+    //  FIXED: Added ':00' for seconds to make proper datetime comparison
     // The issue was that period_time is '9:00-12:00' format (HH:MM)
     // But MySQL NOW() returns 'YYYY-MM-DD HH:MM:SS' format
     // So we need to add ':00' for seconds to match the format
@@ -68,6 +68,8 @@ async function updateExpiredReservations(connection: any) {
 
 // GET method with auto-update for expired reservations
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url); // 18 Nov 2568
+  const source = searchParams.get('source'); // 18 Nov 2568
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -77,22 +79,65 @@ export async function GET(request: Request) {
       database: process.env.DB_NAME
     });
 
-    // First, update any expired reservations
+  // 18 Nov 2568
     const expiredCount = await updateExpiredReservations(connection);
-    console.log(`GET: Updated ${expiredCount} expired reservations`);
+    console.log(`GET: Updated ${expiredCount} expired reservations`)
 
-    const selectQuery = `
-      SELECT room, seat, status, major FROM nodelogin.stud_reserv 
+  if (source === 'admin') { // 18 Nov 2568
+    // Return admin-specific data
+    const adminQuery = `
+      SELECT room, seat, status, major FROM nodelogin.staff_ bookings
       WHERE (status = 'occupied' OR status = 'pending')
     `;
+      const [adminReservations] = await connection.execute(adminQuery);
+      await connection.end();
+     return NextResponse.json({ 
+      adminReservations,
+      expiredUpdated: expiredCount 
+    }); // 18 Nov 2568 // 18 Nov 2568
+  } else if (source === 'student') {// 18 Nov 2568
+    // Return user-specific data 
+   ;
+    const studentQuery = `
+      SELECT room, seat, status, major FROM nodelogin.student_ bookings
+      WHERE (status = 'occupied' OR status = 'pending')
+    `;
+    const [studentReservations] = await connection.execute(studentQuery);
+    await connection.end();
+    return NextResponse.json({ 
+      studentReservations,
+      expiredUpdated: expiredCount 
+    }); // 18 Nov 2568
+  } else {
+    // Default case - return error or empty data
+     await connection.end();
+     return NextResponse.json({ 
+        error: 'Invalid source parameter. Must be "admin" or "student"' 
+      }, { status: 400 });
+  } 
 
+
+  // 18 Nov 2568
+  //Original
+    // First, update any expired reservations
+    //const expiredCount = await updateExpiredReservations(connection);
+    //console.log(`GET: Updated ${expiredCount} expired reservations`);
+
+    /*Original
+    const selectQuery = `.  
+      SELECT room, seat, status, major FROM nodelogin.stud_reserv 
+      WHERE (status = 'occupied' OR status = 'pending')
+    `; //Original
+    //Original
     const [reservations] = await connection.execute(selectQuery);
+    //Original
     await connection.end();
 
     return NextResponse.json({ 
       reservations,
       expiredUpdated: expiredCount 
     });
+     */  //Original
   } catch (err) {
     console.error('Database error:', err);
     if (connection) await connection.end();
@@ -102,6 +147,8 @@ export async function GET(request: Request) {
 
 // POST method with auto-update for expired reservations
 export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url); // 18 Nov 2568
+  const source = searchParams.get('source'); // 18 Nov 2568
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -109,29 +156,66 @@ export async function POST(request: Request) {
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      charset: 'utf8mb4' // ⭐ Add this
+      charset: 'utf8mb4' //  Add this
     });
 
     // First, update any expired reservations
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`POST: Updated ${expiredCount} expired reservations`);
 
-    const { username, major, room, seats } = await request.json();
+     // Validate source parameter first
+    if (source !== 'admin' && source !== 'student') {
+      await connection.end();
+      return NextResponse.json({
+        error: 'Invalid source parameter. Must be "admin" or "student"'
+      }, { status: 400 });
+    }
+
+     const body = await request.json();
+    let username, major, room, seats, advisor;
+if (source === 'admin') {
+      ({ username, major, room, seats } = body);
+      
+      // Validation for admin
+      if (!username || !major || !room || !seats || !Array.isArray(seats)) {
+        await connection.end();
+        return NextResponse.json({
+          error: 'Missing required fields: username, major, room, and seats are required'
+        }, { status: 400 });
+      }
+    } else if (source === 'student') {
+      ({ username, major, room, seats, advisor } = body);
+      
+      // Validation for student (includes advisor)
+      if (!username || !major || !room || !seats || !Array.isArray(seats) || !advisor) {
+        await connection.end();
+        return NextResponse.json({
+          error: 'Missing required fields: username, major, room, seats, and advisor are required'
+        }, { status: 400 });
+      }
+    }
+
+    //const { username, major, room, seats } = await request.json(); //original
 
     // Validation: Check if required fields are present
-    if (!username || !major || !room || !seats || !Array.isArray(seats)) {
+    if (!username || !major || !room || !seats || !Array.isArray(seats) || !advisor) {
       await connection.end();
       return NextResponse.json({ 
-        error: 'Missing required fields: username, major, room, and seats are required' 
+        error: 'Missing required fields: username, major, room, seats, and advisor are required' 
       }, { status: 400 });
     }
 
     // Check if any seats are already occupied
      const seatIds = seats.map((s: any) => s.seat);
     const placeholders = seatIds.map(() => '?').join(',');
+
+    // Choose table based on source
+    const tableName = source === 'admin' 
+      ? 'nodelogin.staff_bookings' 
+      : 'nodelogin.student_bookings';
     const checkQuery = `
-      SELECT seat FROM nodelogin.stud_reserv 
-      WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND (status = 'occupied' OR status = 'pending')
+      SELECT seat FROM ${tableName}
+      WHERE room = ? AND seat IN (${placeholders}) AND (status = 'occupied' OR status = 'pending')
     `;
 
     const [existingSeats] = await connection.execute(checkQuery, [room, ...seatIds]);
@@ -145,19 +229,35 @@ export async function POST(request: Request) {
     }
 
     // Generate unique approval token
-    const approvalToken = crypto.randomUUID();
-
+    const approvalToken = crypto.randomUUID(); 
+/*
     const insertQuery = `
       INSERT INTO nodelogin.stud_reserv 
       (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
-
-    // ⭐ Insert with better error handling
+ */
+ if (source === 'admin') {
+    const staffQuery = `
+      INSERT INTO nodelogin.staff_bookings 
+      (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+      for (const seat of seatIds) {
+        await connection.execute(staffQuery, 
+          [username, major, room, seat, approvalToken]);
+      }
+    }else if (source === 'student') {
+    const studentQuery = `
+      INSERT INTO nodelogin.student_bookings
+      (username, major, room, seat, date_in, date_out, period_time, advisor_name, advisor, admin, status, approval_token, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;}
+    //  Insert with better error handling
     for (const seat of seats) {
       try {
-        console.log('Inserting seat:', seat.seat); // Debug log
-        await connection.execute(insertQuery, [
+        if (source === 'admin') { console.log('Inserting seat:', seat.seat); // Debug log
+        await connection.execute(staffQuery, [
           username,
           major,
           room,
@@ -168,13 +268,41 @@ export async function POST(request: Request) {
           'x',
           'pending',
           approvalToken
-        ]);
+        ]); } // 18 Nov 2568
+        else if (source === 'student') {console.log('Inserting seat:', seat.seat); // Debug log
+        await connection.execute(studentQuery, [
+          username,
+          major,
+          room,
+          seat.seat,
+          seat.date_in,
+          seat.date_out,
+          seat.period_time,
+          seat.advisor_name,
+          'x',
+          'x',
+          'pending',
+          approvalToken
+        ]);}
+        //console.log('Inserting seat:', seat.seat);  Debug log original
+       /* original await connection.execute(insertQuery, [ 
+          username,
+          major,
+          room,
+          seat.seat,
+          seat.date_in,
+          seat.date_out,
+          seat.period_time,
+          'x',
+          'pending',
+          approvalToken
+        ]);*/
       } catch (insertError) {
         console.error('Error inserting seat:', seat.seat, insertError);
         throw insertError; // Re-throw to be caught by outer catch
       }
     }
-
+    await connection.end();
     // Send confirmation email if email is provided
       try {
   const transporter = nodemailer.createTransport({
@@ -185,6 +313,76 @@ export async function POST(request: Request) {
     }
   });
 
+  let approvalLink, emailTo, emailSubject, emailHtml;
+/*if (source === 'admin') {
+        approvalLink = `${process.env.NEXT_PUBLIC_BASE_URL}/approve?token=${approvalToken}&type=admin`;
+        emailTo = `${username}@yourcompany.com`; // Admin email format
+        emailSubject = 'Confirm Your Room Reservation (Staff)';
+        emailHtml = `
+          <h2>Staff Room Reservation</h2>
+          <p>Hello ${username},</p>
+          <p>Your reservation details:</p>
+          <ul>
+            <li>Room: ${room}</li>
+            <li>Seats: ${seatIds.join(', ')}</li>
+            <li>Department: ${major}</li>
+          </ul>
+          <p><a href="${approvalLink}">Click here to approve your reservation</a></p>
+          <p>This link expires in 15 minutes.</p>
+        `;
+      } else if (source === 'student') {
+        approvalLink = `${process.env.NEXT_PUBLIC_BASE_URL}/approve?token=${approvalToken}&type=student`;
+        emailTo = `${username}@student.yourschool.edu`; // Student email format
+        emailSubject = 'Confirm Your Room Reservation (Student)';
+        emailHtml = `
+          <h2>Student Room Reservation</h2>
+          <p>Hello ${username},</p>
+          <p>Your reservation details:</p>
+          <ul>
+            <li>Room: ${room}</li>
+            <li>Seats: ${seatIds.join(', ')}</li>
+            <li>Major: ${major}</li>
+            <li>Advisor: ${advisor}</li>
+          </ul>
+          <p><a href="${approvalLink}">Click here to approve your reservation</a></p>
+          <p>This link expires in 15 minutes.</p>
+        `;
+      }
+
+       await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: emailTo,
+        subject: emailSubject,
+        html: emailHtml
+      });
+
+      console.log(`Email sent successfully to ${emailTo}`);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      // Don't fail the request if email fails - reservation is still created
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Reservation created. Please check your email for approval link.`,
+      approvalToken,
+      expiresAt,
+      userType: source
+    });
+
+  } catch (err) {
+    console.error('Database error:', err);
+    if (connection) {
+      try {
+        await connection.end();
+      } catch (closeErr) {
+        console.error('Error closing connection:', closeErr);
+      }
+    }
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  }
+}
+ */
   const seatDetails = seats.map((seat: any) => `
     <li style="padding: 8px 0; color: #333;">
       <strong>Seat ${seat.seat}:</strong> ${seat.date_in} to ${seat.date_out} (${seat.period_time})
