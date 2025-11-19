@@ -417,7 +417,7 @@ const handleBulkDateTimeChange = (field, value) => {
   console.log("Booking payload:", payload);
 
   try {
-    const response = await fetch('/api/reservations', {
+    const response = await fetch('/api/reservations?source=admin', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

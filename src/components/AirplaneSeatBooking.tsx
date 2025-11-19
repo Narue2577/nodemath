@@ -33,6 +33,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   });
   //ตัวเลือกโดยอาจารย์ที่ปรึกษาหรืออาตารย์ประจำวิชายืนยันทางออนไลน์
   const [options, setOptions] = useState([]);
+  const [selectedAdvisor, setSelectedAdvisor] = useState('');
   // Get username from session or fallback to prop
   const username =  session?.user?.name || tableHeader || 'Guest';
   const major = session?.user?.field || 'Not specified';
@@ -396,13 +397,14 @@ const handleBulkDateTimeChange = (field, value) => {
       date_in: bookingType === 'single' ? dateTimeInputs[seatId].dateIn : bulkDateTimeInputs.dateIn,
       date_out: bookingType === 'single' ? dateTimeInputs[seatId].dateOut : bulkDateTimeInputs.dateOut,
       period_time: bookingType === 'single' ? dateTimeInputs[seatId].periodTime : bulkDateTimeInputs.periodTime,
+      advisor: selectedAdvisor,
     })),
   };
 
   console.log("Booking payload:", payload);
 
   try {
-    const response = await fetch('/api/reservations', {
+    const response = await fetch('/api/reservations?source=student', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -680,7 +682,9 @@ const handleBulkDateTimeChange = (field, value) => {
            <hr></hr>
            <br></br>
            <label>กรุณาขออนุมัติจากอาจารย์ที่ปรึกษาหรืออาจารย์ประจำวิชา</label>
-           <select className="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body">
+           <select className="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body"
+           value={selectedAdvisor}
+           onChange={(e) => setSelectedAdvisor(e.target.value)}>
           {options.map((option) => (
            <option key={option.staff_id} value={option.staff_id}>
           {option.staff_name}
