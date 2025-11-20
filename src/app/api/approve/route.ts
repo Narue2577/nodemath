@@ -46,8 +46,8 @@ export async function GET(request: Request) {
 
     // Update status
     await connection.execute(
-      'UPDATE nodelogin.stud_reserv SET status = ?, updated_at = NOW() WHERE approval_token = ?',
-      [newStatus, token]
+      'UPDATE nodelogin.stud_reserv SET status = ?, admin = ?,  updated_at = NOW() WHERE approval_token = ?',
+      [newStatus,'o', token]
     );
 
     await connection.end();

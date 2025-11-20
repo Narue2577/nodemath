@@ -1,0 +1,156 @@
+You should **create a new API route** for processing email replies (using `imapflow`), and **keep your existing booking creation route** as is. Here’s how to organize and modify your code:
+
+---
+
+## **1. Keep Your Existing Booking Route**
+Your current `POST` route for creating bookings is correct and should **not** be modified for email processing. It handles:
+- Database insertion
+- Sending approval emails
+- Validation
+
+**File:** `app/api/bookings/route.ts` (or similar)
+```typescript
+// Your existing booking creation code
+export async function POST(request: Request) {
+  // ... (your existing code)
+}
+```
+
+---
+
+## **2. Create a New Route for Email Processing**
+Create a **new file** for processing email replies:
+
+**File:** `app/api/process-replies/route.ts`
+```typescript
+import { NextResponse } from 'next/server';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
+import mysql from 'mysql2/promise';
+
+export async function POST() {
+  let connection;
+  try {
+    // Connect to your database
+    connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      charset: 'utf8mb4'
+    });
+
+    // Connect to IMAP
+    const client = new ImapFlow({
+      host: process.env.IMAP_HOST!,
+      port: 993,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER!,
+        pass: process.env.EMAIL_PASSWORD!,
+      },
+    });
+
+    await client.connect();
+    await client.mailboxOpen('INBOX');
+
+    // Search for replies
+    const searchResult = await client.search({
+      unseen: true,
+      subject: 'ปฏิเสธการจองห้อง',
+    });
+
+    if (searchResult.length === 0) {
+      return NextResponse.json({ success: true, message: 'No new replies found.' });
+    }
+
+    // Process each reply
+    for (const uid of searchResult) {
+      const message = await client.fetchOne(uid, { source: true });
+      const parsed = await simpleParser(message.source);
+      const reasonMatch = parsed.text?.match(/ปฏิเสธ: (.*)/);
+      const bookingIdMatch = parsed.subject?.match(/Booking ID: (.*)/);
+
+      if (reasonMatch && bookingIdMatch) {
+        const reason = reasonMatch[1].trim();
+        const bookingId = bookingIdMatch[1].trim();
+
+        // Update the booking status in your database
+        await connection.execute(
+          'UPDATE nodelogin.stud_reserv SET status = ?, reason = ? WHERE approval_token = ?',
+          ['rejected', reason, bookingId]
+        );
+      }
+    }
+
+    // Mark emails as seen
+    await client.messageFlagsAdd(searchResult, ['\\Seen']);
+    await client.logout();
+
+    return NextResponse.json({ success: true, message: 'Processed replies.' });
+  } catch (err) {
+    console.error('Error:', err);
+    return NextResponse.json({ success: false, error: 'Failed to process replies.' }, { status: 500 });
+  } finally {
+    if (connection) await connection.end();
+  }
+}
+```
+
+---
+
+## **3. How to Trigger the Email Processing**
+### **Option A: Manual Trigger (for testing)**
+Call the endpoint with `POST`:
+```bash
+curl -X POST http://localhost:3000/api/process-replies
+```
+
+### **Option B: Scheduled Job (for production)**
+Use a **cron job** or **Vercel Cron Jobs** to call this endpoint every few minutes.
+
+**Example (Vercel):**
+```json
+// vercel.json
+{
+  "crons": [
+    {
+      "path": "/api/process-replies",
+      "schedule": "*/5 * * * *" // Every 5 minutes
+    }
+  ]
+}
+```
+
+---
+
+## **4. Environment Variables**
+Make sure your `.env.local` includes:
+```env
+IMAP_HOST=imap.your-email-provider.com
+EMAIL_USER=your-email@example.com
+EMAIL_PASSWORD=your-email-password
+DB_HOST=your-db-host
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+DB_NAME=your-db-name
+```
+
+---
+
+## **5. Summary of Changes**
+| File/Route                | Purpose                          |
+|---------------------------|----------------------------------|
+| `app/api/bookings/route.ts` | Handles booking creation        |
+| `app/api/process-replies/route.ts` | Handles email reply processing |
+
+---
+
+**Final Note:**
+- Your booking creation route **does not need to change**.
+- The new route is **only for processing email replies**.
+- You can trigger it manually or via a cron job.
+
+---
+**Question:**
+Do you need help setting up the cron job, or would you like to test the email processing route first? Let me know!

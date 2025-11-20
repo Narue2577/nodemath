@@ -12,7 +12,10 @@ interface AirplaneSeatBookingAdminProps {
 
 const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tableHeader }) => {
   const { data: session, status } = useSession();
- 
+  const today = new Date();
+  const today2 = new Date(today);
+  today2.setDate(today2.getDate() );
+  const minDate = today2.toISOString().split('T')[0];
   
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -546,6 +549,7 @@ const handleBulkDateTimeChange = (field, value) => {
                 }`}
               value={bulkDateTimeInputs.dateIn}
               onChange={(e) => handleBulkDateTimeChange('dateIn', e.target.value)}
+              min={minDate}
             required
 />
           </div>
@@ -558,6 +562,7 @@ const handleBulkDateTimeChange = (field, value) => {
               }`}
               value={bulkDateTimeInputs.dateOut}
               onChange={(e) => handleBulkDateTimeChange('dateOut', e.target.value)}
+              min={minDate}
               required
             />
           </div>
@@ -629,6 +634,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       }`}
                       value={seatData.dateIn || ''}
                       onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
+                      min={minDate}
                       required
                     /> 
                   </td>
@@ -640,6 +646,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       }`}
                       value={seatData.dateOut || ''}
                       onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
+                      min={minDate}
                       required
                     />
                   </td>
