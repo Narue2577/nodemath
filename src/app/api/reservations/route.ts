@@ -3,10 +3,17 @@ import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
-import { ImapFlow } from 'imapflow';
-import { simpleParser } from 'mailparser';
 
 
+//const transporter2 = nodemailer.createTransport({
+//  host: process.env.SMTP_HOST,
+//  port: parseInt(process.env.SMTP_PORT || '587'),
+//  secure: false,
+//  auth: {
+//    user: process.env.SMTP_USER,
+//    pass: process.env.SMTP_PASS,
+//  },
+//});
 
 
 // Helper function to check and update expired reservations
@@ -29,7 +36,7 @@ async function updateExpiredReservations(connection: any) {
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
     NOW() as current_timestamp,  -- ⭐ Changed name
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
-  FROM nodelogin.stud_reserv 
+  FROM nodelogin.staff_bookings 
   WHERE (status = 'occupied' OR status = 'pending')
   LIMIT 5
 `);
@@ -39,7 +46,7 @@ async function updateExpiredReservations(connection: any) {
     // Count how many should be expired
     const [countResult]: any = await connection.execute(`
       SELECT COUNT(*) as count
-      FROM nodelogin.stud_reserv 
+      FROM nodelogin.staff_bookings
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
@@ -51,7 +58,7 @@ async function updateExpiredReservations(connection: any) {
     // But MySQL NOW() returns 'YYYY-MM-DD HH:MM:SS' format
     // So we need to add ':00' for seconds to match the format
     const query = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE nodelogin.staff_bookings
       SET status = 'complete', updated_at = NOW()
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
@@ -71,6 +78,8 @@ async function updateExpiredReservations(connection: any) {
 
 // GET method with auto-update for expired reservations
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url); // 18 Nov 2568
+  const source = searchParams.get('source'); // 18 Nov 2568
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -85,7 +94,7 @@ export async function GET(request: Request) {
     console.log(`GET: Updated ${expiredCount} expired reservations`);
 
     const selectQuery = `
-      SELECT room, seat, status, major FROM nodelogin.stud_reserv 
+      SELECT room, seat, status, major FROM nodelogin.staff_bookings
       WHERE (status = 'occupied' OR status = 'pending')
     `;
 
@@ -105,6 +114,8 @@ export async function GET(request: Request) {
 
 // POST method with auto-update for expired reservations
 export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url); // 18 Nov 2568
+  const source = searchParams.get('source'); // 18 Nov 2568
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -133,7 +144,7 @@ export async function POST(request: Request) {
      const seatIds = seats.map((s: any) => s.seat);
     const placeholders = seatIds.map(() => '?').join(',');
     const checkQuery = `
-      SELECT seat FROM nodelogin.stud_reserv 
+      SELECT seat FROM nodelogin.staff_bookings
       WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND (status = 'occupied' OR status = 'pending')
     `;
 
@@ -151,12 +162,12 @@ export async function POST(request: Request) {
     const approvalToken = crypto.randomUUID();
 
     const insertQuery = `
-      INSERT INTO nodelogin.stud_reserv 
+      INSERT INTO nodelogin.staff_bookings
       (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
-    // ⭐ Insert with better error handling
+    //  Insert with better error handling
     for (const seat of seats) {
       try {
         console.log('Inserting seat:', seat.seat); // Debug log
@@ -195,7 +206,7 @@ export async function POST(request: Request) {
   `).join('');
 
   const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm`;
-  const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=reject`;
+  const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/reject?token=${approvalToken}`;
 
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
@@ -222,12 +233,12 @@ export async function POST(request: Request) {
             </p>
             
             <p style="font-size: 15px; color: #555; line-height: 1.6;">
-              ผม/ดิฉัน <strong>${username}</strong> ได้ทำรายการจองห้องคอมพิวเตอร์ <strong>${room}</strong> 
+              <strong>${username}</strong> ได้ทำรายการจองห้องคอมพิวเตอร์ <strong>${room}</strong> 
               ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
             </p>
             
             <p style="font-size: 15px; color: #555; line-height: 1.6;">
-              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการยืม และอนุมัติหรือไม่อนุมัติรายการยืมดังกล่าว โดยกดปุ่มด้านล่าง
+              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
             </p>
             
             <!-- Booking Details Box -->
@@ -256,8 +267,6 @@ export async function POST(request: Request) {
                  อนุมัติ (CONFIRM)
               </a>
             </div>
-               <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-            
             <!-- Reject Section  -->
             <div style="background-color: #fff3f3; border: 2px solid #f44336; border-radius: 8px; padding: 25px; margin-top: 30px;">
   <h3 style="color: #f44336; margin-top: 0; font-size: 18px; margin-bottom: 15px;">
@@ -265,42 +274,138 @@ export async function POST(request: Request) {
   </h3>
   <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
     หากต้องการปฏิเสธการจอง กรุณาตอบกลับอีเมลนี้พร้อมระบุเหตุผลของคุณ<br>
-    ตัวอย่าง:<br>
-    <em>ปฏิเสธ: ห้องไม่ว่างในช่วงเวลาดังกล่าว</em>
   </p>
   <div style="text-align: center; margin-top: 20px;">
-    <a href="mailto:naruesorn@g.swu.ac.th?subject=ปฏิเสธการจองห้อง (${room} ${seats})&body=ปฏิเสธ: [ระบุเหตุผล]"
-       style="background-color: #f44336; color: white; padding: 12px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(244, 67, 54, 0.3);">
-       ตอบกลับเพื่อปฏิเสธ (REPLY TO REJECT)
-    </a>
+    <a href="${rejectLink}" 
+                   style="background-color: #f44336; 
+                          color: white; 
+                          padding: 14px 40px; 
+                          text-decoration: none; 
+                          border-radius: 8px; 
+                          font-size: 16px; 
+                          font-weight: bold; 
+                          display: inline-block;
+                          margin: 0 0 10px 0;
+                          box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);">
+                  ปฏิเสธการจอง (REJECT)
+                </a>
   </div>
 </div>
             
-          </div>
-          
-          <!-- Footer -->
-          <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e0e0e0;">
-            <p style="margin: 0; font-size: 13px; color: #666;">
-              วิทยาลัยนวัตกรรมสื่อสารสังคม<br>
-              ระบบจองห้องคอมพิวเตอร์
-            </p>
-          </div>
-          
+          </div>  
         </div>
       </body>
       </html>
     `
   });
-
-
-        //    <p>Dear ${username},</p>
+  if(source === 'student'){
+    await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: "naruesorn@g.swu.ac.th",
+    subject: "ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <div style="background: gray; padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">คำขออนุมัติการจองห้อง</h2>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding: 30px;">
+            <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+              เรียน <strong>${advisor}</strong> (ผู้อนุมัติรายการจองห้อง)
+            </p>
+            
+            <p style="font-size: 15px; color: #555; line-height: 1.6;">
+              <strong>${username}</strong> ได้ทำรายการจองห้องคอมพิวเตอร์ <strong>${room}</strong> 
+              ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+            </p>
+            
+            <p style="font-size: 15px; color: #555; line-height: 1.6;">
+              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
+            </p>
+            
+            <!-- Booking Details Box -->
+            <div style="background-color: #f8f9fa;  padding: 20px; margin: 25px 0; border-radius: 5px;">
+              <h3 style="margin-top: 0; color: #667eea; font-size: 18px; margin-bottom: 15px;">รายละเอียดการจอง</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                ${seatDetails}
+              </ul>
+              <p style="margin: 15px 0 0 0; color: #666; font-size: 14px;">
+                <strong>วันที่ขอ:</strong> ${new Date().toLocaleString('th-TH')}
+              </p>
+            </div>
+                  
+            <!-- Confirm Button -->
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${confirmLink}" 
+                 style="background-color: #4CAF50; 
+                        color: white; 
+                        padding: 15px 50px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        font-size: 18px;
+                        font-weight: bold;
+                        display: inline-block;
+                        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);">
+                 อนุมัติ (CONFIRM)
+              </a>
+            </div>
+            <!-- Reject Section  -->
+            <div style="background-color: #fff3f3; border: 2px solid #f44336; border-radius: 8px; padding: 25px; margin-top: 30px;">
+  <h3 style="color: #f44336; margin-top: 0; font-size: 18px; margin-bottom: 15px;">
+    คำขอปฏิเสธ
+  </h3>
+  <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+    หากต้องการปฏิเสธการจอง กรุณาตอบกลับอีเมลนี้พร้อมระบุเหตุผลของคุณ<br>
+  </p>
+  <div style="text-align: center; margin-top: 20px;">
+    <a href="${rejectLink}" 
+                   style="background-color: #f44336; 
+                          color: white; 
+                          padding: 14px 40px; 
+                          text-decoration: none; 
+                          border-radius: 8px; 
+                          font-size: 16px; 
+                          font-weight: bold; 
+                          display: inline-block;
+                          margin: 0 0 10px 0;
+                          box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);">
+                  ปฏิเสธการจอง (REJECT)
+                </a>
+  </div>
+</div>
+            
+          </div>  
+        </div>
+      </body>
+      </html>
+    `
+  });
+  }
+        /*  <!-- Footer --> Line 294
+          <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e0e0e0;">
+            <p style="margin: 0; font-size: 13px; color: #666;">
+              วิทยาลัยนวัตกรรมสื่อสารสังคม<br>
+              ระบบจองห้องคอมพิวเตอร์
+            </p>
+          </div> - Line 300 */
+        //    <p>Dear ${username},</p>      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
         //    <p>Your reservation has been confirmed:</p>
         //    <p>Room: ${room}</p>
        //     <p>Seats: ${seatIds.join(', ')}</p>
        //     <a href="${confirmLink}">View Details</a>
         console.log("Approval email sent!");
+        
     } catch (emailError) {
-      console.error('Email failed:', emailError);
+      console.error('Failed to send email:', emailError);
       }
     
    await connection.end();
@@ -316,15 +421,17 @@ export async function POST(request: Request) {
  // }
  return NextResponse.json({ 
       message: 'Reservation submitted for approval',
-      count: seats.length,
-      status: 'pending'
-    });
+      approvalToken,
+    }, { status: 201 });
   } catch (err) {
     console.error('Database error:', err);
     if (connection) await connection.end();
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+
+
  
 
 

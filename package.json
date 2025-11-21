@@ -24,7 +24,8 @@
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.10",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "resend": "^6.5.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

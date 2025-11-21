@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     // Check if reservation exists and is pending
     const [reservations] = await connection.execute(
-      'SELECT * FROM nodelogin.stud_reserv WHERE approval_token = ? AND status = "pending"',
+      'SELECT * FROM nodelogin.staff_bookings WHERE approval_token = ? AND status = "pending"',
       [token]
     );
 
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
     // Update status
     await connection.execute(
-      'UPDATE nodelogin.stud_reserv SET status = ?, admin = ?,  updated_at = NOW() WHERE approval_token = ?',
+      'UPDATE nodelogin.staff_bookings SET status = ?, admin = ?,  updated_at = NOW() WHERE approval_token = ?',
       [newStatus,'o', token]
     );
 
