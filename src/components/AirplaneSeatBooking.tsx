@@ -137,7 +137,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
     try {
       setIsLoading(true);
       //  const response = await fetch('/api/reservations', { original
-        const response = await fetch('/api/reservations?source=student', { //18 Nov 2568
+        const response = await fetch('/api/reservations', { //18 Nov 2568
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -411,7 +411,10 @@ const handleBulkDateTimeChange = (field, value) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        dashboard: 'dashboard1'
+      }),
     });
 
     let responseData;

@@ -1,8 +1,8 @@
 //api/reservations/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { transporter } from '@/lib/email';
 
 
 //const transporter2 = nodemailer.createTransport({
@@ -114,8 +114,10 @@ export async function GET(request: Request) {
 
 // POST method with auto-update for expired reservations
 export async function POST(request: Request) {
-  const { searchParams } = new URL(request.url); // 18 Nov 2568
-  const source = searchParams.get('source'); // 18 Nov 2568
+  //  const { searchParams } = new URL(request.url);  18 Nov 2568
+   // const source = searchParams.get('source'); 18 Nov 2568
+  const data = await request.json();
+const { username, major, room, seats, dashboard, ...reservationData } = data;
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -130,7 +132,10 @@ export async function POST(request: Request) {
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`POST: Updated ${expiredCount} expired reservations`);
 
-    const { username, major, room, seats } = await request.json();
+    
+
+    // Now you have everything you need
+    console.log('Dashboard:', dashboard);
 
     // Validation: Check if required fields are present
     if (!username || !major || !room || !seats || !Array.isArray(seats)) {
@@ -191,13 +196,6 @@ export async function POST(request: Request) {
 
     // Send confirmation email if email is provided
       try {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
 
   const seatDetails = seats.map((seat: any) => `
     <li style="padding: 8px 0; color: #333;">
@@ -298,7 +296,7 @@ export async function POST(request: Request) {
       </html>
     `
   });
-  if(source === 'student'){
+   if (dashboard === 'dashboard1') {
     await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: "naruesorn@g.swu.ac.th",
@@ -320,7 +318,7 @@ export async function POST(request: Request) {
           <!-- Content -->
           <div style="padding: 30px;">
             <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-              เรียน <strong>${advisor}</strong> (ผู้อนุมัติรายการจองห้อง)
+              เรียน <strong></strong> (ผู้อนุมัติรายการจองห้อง)
             </p>
             
             <p style="font-size: 15px; color: #555; line-height: 1.6;">
@@ -389,7 +387,7 @@ export async function POST(request: Request) {
       </html>
     `
   });
-  }
+}
         /*  <!-- Footer --> Line 294
           <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e0e0e0;">
             <p style="margin: 0; font-size: 13px; color: #666;">
@@ -438,7 +436,7 @@ export async function POST(request: Request) {
 
 // PUT method with auto-update for expired reservations
 
-/*export async function PUT(request: Request) {
+export async function PUT(request: Request) {
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -501,4 +499,4 @@ export async function POST(request: Request) {
     if (connection) await connection.end();
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
-}*/
+}
