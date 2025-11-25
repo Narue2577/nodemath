@@ -25,7 +25,7 @@ async function updateExpiredReservations(connection: any) {
     
     // First, let's see what we're working with
     const [occupiedRows]: any = await connection.execute(`
-  SELECT 
+  ( SELECT 
     id,
     username,
     room,
@@ -34,41 +34,81 @@ async function updateExpiredReservations(connection: any) {
     period_time,
     status,
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
-    NOW() as current_timestamp,  -- ⭐ Changed name
+    NOW() as current_timestamp,  --  Changed name
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
   FROM nodelogin.staff_bookings 
   WHERE (status = 'occupied' OR status = 'pending')
-  LIMIT 5
+  LIMIT 5 )
+  UNION ALL
+  (
+  SELECT 
+      id,
+      username,
+      room,
+      seat,
+      date_out,
+      period_time,
+      status,
+      CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
+      NOW() as current_timestamp,
+      CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
+    FROM nodelogin.student_bookings 
+    WHERE (status = 'occupied' OR status = 'pending')
+    LIMIT 5
+  )
 `);
     
     console.log('Sample occupied reservations:', occupiedRows);
     
     // Count how many should be expired
-    const [countResult]: any = await connection.execute(`
+    const [staffCountResult]: any = await connection.execute(`
       SELECT COUNT(*) as count
       FROM nodelogin.staff_bookings
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
     
-    console.log('Reservations to expire:', countResult[0].count);
+    const [studentCountResult]: any = await connection.execute(`
+      SELECT COUNT(*) as count
+      FROM nodelogin.student_bookings
+      WHERE (status = 'occupied' OR status = 'pending')
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
+    `);
+
+    const totalToExpire = staffCountResult[0].count + studentCountResult[0].count;
+    console.log('Staff reservations to expire:', staffCountResult[0].count);
+    console.log('Student reservations to expire:', studentCountResult[0].count);
+    console.log('Total reservations to expire:', totalToExpire);
     
     // ⭐ FIXED: Added ':00' for seconds to make proper datetime comparison
     // The issue was that period_time is '9:00-12:00' format (HH:MM)
     // But MySQL NOW() returns 'YYYY-MM-DD HH:MM:SS' format
     // So we need to add ':00' for seconds to match the format
-    const query = `
+     const staffQuery = `
       UPDATE nodelogin.staff_bookings
       SET status = 'complete', updated_at = NOW()
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `; 
 
-    const [result]: any = await connection.execute(query);
-    console.log('Update result - Rows affected:', result.affectedRows);
-    console.log('=== Expiry check complete ===\n');
+    const [staffResult]: any = await connection.execute(staffQuery);
+    console.log('Staff update result - Rows affected:', staffResult.affectedRows);
     
-    return result.affectedRows;
+    // Update STUDENT bookings (ADDED)
+    const studentQuery = `
+      UPDATE nodelogin.student_bookings
+      SET status = 'complete', updated_at = NOW()
+      WHERE (status = 'occupied' OR status = 'pending')
+      AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
+    `;
+
+    const [studentResult]: any = await connection.execute(studentQuery);
+    console.log('Student update result - Rows affected:', studentResult.affectedRows);
+    
+    const totalAffected = staffResult.affectedRows + studentResult.affectedRows;
+    console.log('Total rows affected:', totalAffected);
+    console.log('=== Expiry check complete ===\n');
+    return totalAffected;
   } catch (error) {
     console.error('Error in updateExpiredReservations:', error);
     return 0;
@@ -78,8 +118,8 @@ async function updateExpiredReservations(connection: any) {
 
 // GET method with auto-update for expired reservations
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url); // 18 Nov 2568
-  const source = searchParams.get('source'); // 18 Nov 2568
+ // const { searchParams } = new URL(request.url); // 18 Nov 2568
+ // const source = searchParams.get('source');  18 Nov 2568
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -91,18 +131,25 @@ export async function GET(request: Request) {
 
     // First, update any expired reservations
     const expiredCount = await updateExpiredReservations(connection);
+    
     console.log(`GET: Updated ${expiredCount} expired reservations`);
 
-    const selectQuery = `
+    const selectStaffQuery = `
       SELECT room, seat, status, major FROM nodelogin.staff_bookings
       WHERE (status = 'occupied' OR status = 'pending')
     `;
+    const selectStudentQuery = `
+      SELECT room, seat, status, major FROM nodelogin.student_bookings
+      WHERE (status = 'occupied' OR status = 'pending')
+    `;
 
-    const [reservations] = await connection.execute(selectQuery);
+    const [Staffreservations] = await connection.execute(selectStaffQuery);
+    const [Stureservations] = await connection.execute(selectStudentQuery);
     await connection.end();
 
     return NextResponse.json({ 
-      reservations,
+      Staffreservations,
+      Stureservations,
       expiredUpdated: expiredCount 
     });
   } catch (err) {
@@ -132,8 +179,6 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
     const expiredCount = await updateExpiredReservations(connection);
     console.log(`POST: Updated ${expiredCount} expired reservations`);
 
-    
-
     // Now you have everything you need
     console.log('Dashboard:', dashboard);
 
@@ -148,6 +193,7 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
     // Check if any seats are already occupied
      const seatIds = seats.map((s: any) => s.seat);
     const placeholders = seatIds.map(() => '?').join(',');
+    const isStudent = dashboard === 'dashboard2'; // or however you determine this
     const checkQuery = `
       SELECT seat FROM nodelogin.staff_bookings
       WHERE room = ? AND seat IN (${seatIds.map(() => '?').join(',')}) AND (status = 'occupied' OR status = 'pending')
@@ -169,7 +215,13 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
     const insertQuery = `
       INSERT INTO nodelogin.staff_bookings
       (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    const insertQuery2 = `
+      INSERT INTO nodelogin.student_bookings
+      (username, major, room, seat, date_in, date_out, period_time, advisor_name, advisor, admin, status, approval_token, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     //  Insert with better error handling
@@ -186,7 +238,7 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
           seat.period_time,
           'x',
           'pending',
-          approvalToken
+          approvalToken,
         ]);
       } catch (insertError) {
         console.error('Error inserting seat:', seat.seat, insertError);
@@ -448,6 +500,7 @@ export async function PUT(request: Request) {
 
     // First, update any expired reservations
     const expiredCount = await updateExpiredReservations(connection);
+    
     console.log(`PUT: Updated ${expiredCount} expired reservations`);
 
     const { username, major, room, seat, date_in, date_out, period_time, status } = await request.json();
@@ -461,10 +514,14 @@ export async function PUT(request: Request) {
 
     // Check if the reservation exists
     const checkQuery = `
-      SELECT * FROM nodelogin.stud_reserv 
+      SELECT * FROM nodelogin.staff_bookings
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
+    const checkQuery2 = `
+      SELECT * FROM nodelogin.student_bookings
+      WHERE username = ? AND room = ? AND seat = ?
+    `;
     const [existingReservation] = await connection.execute(checkQuery, [username, room, seat]);
 
     if (!(existingReservation as any[]).length) {
@@ -473,10 +530,17 @@ export async function PUT(request: Request) {
     }
 
     const updateQuery = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE nodelogin.staff_bookings
       SET major = ?, date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;
+
+    const updateQuery2 = `
+      UPDATE nodelogin.student_bookings
+      SET major = ?, date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
+      WHERE username = ? AND room = ? AND seat = ?
+    `;
+
 
     await connection.execute(updateQuery, [
       major,
