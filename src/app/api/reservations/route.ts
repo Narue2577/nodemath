@@ -34,7 +34,7 @@ async function updateExpiredReservations(connection: any) {
     period_time,
     status,
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
-    NOW() as current_timestamp,  --  Changed name
+    NOW() as current_timestamp,  
     CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
   FROM nodelogin.staff_bookings 
   WHERE (status = 'occupied' OR status = 'pending')
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
   //  const { searchParams } = new URL(request.url);  18 Nov 2568
    // const source = searchParams.get('source'); 18 Nov 2568
   const data = await request.json();
-const { username, major, room, seats, dashboard, ...reservationData } = data;
+const { username, major, room, seats, dashboard} = data;
   let connection;
   try {
     connection = await mysql.createConnection({
@@ -215,7 +215,7 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
     const insertQuery = `
       INSERT INTO nodelogin.staff_bookings
       (username, major, room, seat, date_in, date_out, period_time, admin, status, approval_token, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     const insertQuery2 = `
@@ -224,32 +224,7 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
-    //  Insert with better error handling
-    for (const seat of seats) {
-      try {
-        console.log('Inserting seat:', seat.seat); // Debug log
-        await connection.execute(insertQuery, [
-          username,
-          major,
-          room,
-          seat.seat,
-          seat.date_in,
-          seat.date_out,
-          seat.period_time,
-          'x',
-          'pending',
-          approvalToken,
-        ]);
-      } catch (insertError) {
-        console.error('Error inserting seat:', seat.seat, insertError);
-        throw insertError; // Re-throw to be caught by outer catch
-      }
-    }
-
-    // Send confirmation email if email is provided
-      try {
-
-  const seatDetails = seats.map((seat: any) => `
+      const seatDetails = seats.map((seat: any) => `
     <li style="padding: 8px 0; color: #333;">
       <strong>Seat ${seat.seat}:</strong> ${seat.date_in} to ${seat.date_out} (${seat.period_time})
     </li>
@@ -257,6 +232,172 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
 
   const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm`;
   const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/reject?token=${approvalToken}`;
+
+
+    //  Insert with better error handling
+    if(isStudent){
+    for (const seat of seats) {
+      try {
+        console.log('Student booking parameters:', {
+      username,
+      major,
+      room,
+      seat: seat.seat,
+      date_in: seat.date_in,
+      date_out: seat.date_out,
+      period_time: seat.period_time,
+      advisor_name: seat.advisor_name,
+      approvalToken
+    });
+        await connection.execute(insertQuery2, [
+          username ?? null,
+          major ?? null,
+          room ?? null,
+          seat.seat ?? null,
+          seat.date_in ?? null,
+          seat.date_out ?? null,
+          seat.period_time ?? null,
+          seat.advisor_name ?? null,
+          'x',
+          'x',
+          'pending',
+          approvalToken ?? null,
+        ]);
+      } catch (insertError) {
+        console.error('Error inserting seat:', seat.seat, insertError);
+        throw insertError; // Re-throw to be caught by outer catch
+      }
+    }
+  }else{
+    for (const seat of seats) {
+      try {
+        console.log('Staff booking parameters:', {
+      username,
+      major,
+      room,
+      seat: seat.seat,
+      date_in: seat.date_in,
+      date_out: seat.date_out,
+      period_time: seat.period_time,
+      approvalToken
+    });
+        await connection.execute(insertQuery, [
+          username ?? null,
+          major ?? null,
+          room ?? null,
+          seat.seat ?? null,
+          seat.date_in ?? null,
+          seat.date_out ?? null,
+          seat.period_time ?? null,
+          'x',
+          'pending',
+          approvalToken ?? null,
+        ]);
+      } catch (insertError) {
+        console.error('Error inserting seat:', seat.seat, insertError);
+        throw insertError; // Re-throw to be caught by outer catch
+      }
+    }
+
+    try{
+      await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: "naruesorn@g.swu.ac.th",
+    subject: "ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 40px auto; background-color: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          
+          <!-- Header -->
+          <div style="background: gray; padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">คำขออนุมัติการจองห้อง</h2>
+          </div>
+          
+          <!-- Content -->
+          <div style="padding: 30px;">
+            <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+              เรียน <strong></strong> (ผู้อนุมัติรายการจองห้อง)
+            </p>
+            
+            <p style="font-size: 15px; color: #555; line-height: 1.6;">
+              <strong>${username}</strong> ได้ทำรายการจองห้องคอมพิวเตอร์ <strong>${room}</strong> 
+              ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
+            </p>
+            
+            <p style="font-size: 15px; color: #555; line-height: 1.6;">
+              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
+            </p>
+            
+            <!-- Booking Details Box -->
+            <div style="background-color: #f8f9fa;  padding: 20px; margin: 25px 0; border-radius: 5px;">
+              <h3 style="margin-top: 0; color: #667eea; font-size: 18px; margin-bottom: 15px;">รายละเอียดการจอง</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                ${seatDetails}
+              </ul>
+              <p style="margin: 15px 0 0 0; color: #666; font-size: 14px;">
+                <strong>วันที่ขอ:</strong> ${new Date().toLocaleString('th-TH')}
+              </p>
+            </div>
+                  
+            <!-- Confirm Button -->
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${confirmLink}" 
+                 style="background-color: #4CAF50; 
+                        color: white; 
+                        padding: 15px 50px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        font-size: 18px;
+                        font-weight: bold;
+                        display: inline-block;
+                        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);">
+                 อนุมัติ (CONFIRM)
+              </a>
+            </div>
+            <!-- Reject Section  -->
+            <div style="background-color: #fff3f3; border: 2px solid #f44336; border-radius: 8px; padding: 25px; margin-top: 30px;">
+  <h3 style="color: #f44336; margin-top: 0; font-size: 18px; margin-bottom: 15px;">
+    คำขอปฏิเสธ
+  </h3>
+  <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+    หากต้องการปฏิเสธการจอง กรุณาตอบกลับอีเมลนี้พร้อมระบุเหตุผลของคุณ<br>
+  </p>
+  <div style="text-align: center; margin-top: 20px;">
+    <a href="${rejectLink}" 
+                   style="background-color: #f44336; 
+                          color: white; 
+                          padding: 14px 40px; 
+                          text-decoration: none; 
+                          border-radius: 8px; 
+                          font-size: 16px; 
+                          font-weight: bold; 
+                          display: inline-block;
+                          margin: 0 0 10px 0;
+                          box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);">
+                  ปฏิเสธการจอง (REJECT)
+                </a>
+  </div>
+</div>
+            
+          </div>  
+        </div>
+      </body>
+      </html>
+    `
+  });
+    } catch(emailError){
+      console.error('Error sending email:', emailError)
+    }
+  }
+    // Send confirmation email if email is provided
+      try {
+
+
 
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
@@ -348,98 +489,9 @@ const { username, major, room, seats, dashboard, ...reservationData } = data;
       </html>
     `
   });
-   if (dashboard === 'dashboard1') {
-    await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: "naruesorn@g.swu.ac.th",
-    subject: "ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์",
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-      </head>
-      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
-        <div style="max-width: 600px; margin: 40px auto; background-color: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          
-          <!-- Header -->
-          <div style="background: gray; padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">คำขออนุมัติการจองห้อง</h2>
-          </div>
-          
-          <!-- Content -->
-          <div style="padding: 30px;">
-            <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-              เรียน <strong></strong> (ผู้อนุมัติรายการจองห้อง)
-            </p>
-            
-            <p style="font-size: 15px; color: #555; line-height: 1.6;">
-              <strong>${username}</strong> ได้ทำรายการจองห้องคอมพิวเตอร์ <strong>${room}</strong> 
-              ของวิทยาลัยนวัตกรรมสื่อสารสังคม ผ่านทางเว็บไซต์
-            </p>
-            
-            <p style="font-size: 15px; color: #555; line-height: 1.6;">
-              ทั้งนี้ ใคร่ขอรบกวนให้ท่านตรวจสอบรายละเอียดการจอง และอนุมัติหรือไม่อนุมัติรายการจองดังกล่าว โดยกดปุ่มด้านล่าง
-            </p>
-            
-            <!-- Booking Details Box -->
-            <div style="background-color: #f8f9fa;  padding: 20px; margin: 25px 0; border-radius: 5px;">
-              <h3 style="margin-top: 0; color: #667eea; font-size: 18px; margin-bottom: 15px;">รายละเอียดการจอง</h3>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                ${seatDetails}
-              </ul>
-              <p style="margin: 15px 0 0 0; color: #666; font-size: 14px;">
-                <strong>วันที่ขอ:</strong> ${new Date().toLocaleString('th-TH')}
-              </p>
-            </div>
-                  
-            <!-- Confirm Button -->
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${confirmLink}" 
-                 style="background-color: #4CAF50; 
-                        color: white; 
-                        padding: 15px 50px; 
-                        text-decoration: none; 
-                        border-radius: 8px; 
-                        font-size: 18px;
-                        font-weight: bold;
-                        display: inline-block;
-                        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);">
-                 อนุมัติ (CONFIRM)
-              </a>
-            </div>
-            <!-- Reject Section  -->
-            <div style="background-color: #fff3f3; border: 2px solid #f44336; border-radius: 8px; padding: 25px; margin-top: 30px;">
-  <h3 style="color: #f44336; margin-top: 0; font-size: 18px; margin-bottom: 15px;">
-    คำขอปฏิเสธ
-  </h3>
-  <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
-    หากต้องการปฏิเสธการจอง กรุณาตอบกลับอีเมลนี้พร้อมระบุเหตุผลของคุณ<br>
-  </p>
-  <div style="text-align: center; margin-top: 20px;">
-    <a href="${rejectLink}" 
-                   style="background-color: #f44336; 
-                          color: white; 
-                          padding: 14px 40px; 
-                          text-decoration: none; 
-                          border-radius: 8px; 
-                          font-size: 16px; 
-                          font-weight: bold; 
-                          display: inline-block;
-                          margin: 0 0 10px 0;
-                          box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);">
-                  ปฏิเสธการจอง (REJECT)
-                </a>
-  </div>
-</div>
-            
-          </div>  
-        </div>
-      </body>
-      </html>
-    `
-  });
-}
+
+    
+
         /*  <!-- Footer --> Line 294
           <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; border-top: 1px solid #e0e0e0;">
             <p style="margin: 0; font-size: 13px; color: #666;">
@@ -495,7 +547,7 @@ export async function PUT(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME0
     });
 
     // First, update any expired reservations
