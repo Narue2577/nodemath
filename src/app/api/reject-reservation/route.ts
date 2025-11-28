@@ -38,13 +38,13 @@ export async function POST(request: NextRequest) {
 
     // Update status to rejected
     await connection.execute(
-      'UPDATE nodelogin.stud_reserv SET status = ? WHERE approval_token = ?',
+      'UPDATE nodelogin.bookingsTest SET status = ? WHERE approval_token = ?',
       ['rejected', token]
     );
 
     // Get all seats for this booking
     const [allSeats] = await connection.execute(
-      'SELECT seat FROM nodelogin.stud_reserv WHERE approval_token = ?',
+      'SELECT seat FROM nodelogin.bookingsTest WHERE approval_token = ?',
       [token]
     );
     const seats = (allSeats as any[]).map(s => s.seat).join(', ');

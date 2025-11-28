@@ -135,7 +135,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
     try {
       setIsLoading(true);
     //  const response = await fetch('/api/reservations', { original
-        const response = await fetch('/api/reservations', { //18 Nov 2568
+        const response = await fetch('/api/reservations?role=admin', { //18 Nov 2568
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -414,21 +414,21 @@ const handleBulkDateTimeChange = (field, value) => {
       date_in: bookingType === 'single' ? dateTimeInputs[seatId].dateIn : bulkDateTimeInputs.dateIn,
       date_out: bookingType === 'single' ? dateTimeInputs[seatId].dateOut : bulkDateTimeInputs.dateOut,
       period_time: bookingType === 'single' ? dateTimeInputs[seatId].periodTime : bulkDateTimeInputs.periodTime,
+      advisor_name: '-'
     })),
   };
 
   console.log("Booking payload:", payload);
 
   try {
-    const response = await fetch('/api/reservations', {
+    const response = await fetch('/api/reservations?role=admin', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
       body: JSON.stringify({
-      ...payload,
-      dashboard:'dashboard2'
+      ...payload
     }),
     });
 
