@@ -688,7 +688,7 @@ const handleBulkDateTimeChange = (field, value) => {
            value={selectedAdvisor}
            onChange={(e) => setSelectedAdvisor(e.target.value)}>
           {options.map((option) => (
-           <option key={option.staff_id} value={option.staff_id}>
+           <option key={option.staff_id} value={option.staff_name}>
           {option.staff_name}
         </option>
       ))}

@@ -12,7 +12,7 @@ export async function GET() {
 
   try {
     // Query the database
-    const [rows] = await connection.execute('SELECT staff_id, staff_name FROM staff WHERE (staff_id >= 10001 AND staff_id <= 30037) AND staff_name != "ผศ.ดร.ปรวัน แพทยานนท์" ');
+    const [rows] = await connection.execute('SELECT staff_id, staff_name FROM staff WHERE (staff_id >= 10001 AND staff_id <= 30037) AND (staff_name != "ผศ.ดร.ปรวัน แพทยานนท์") AND (staff_email != "") ' );
     // Return the data as JSON
     return NextResponse.json(rows);
   } catch (error) {

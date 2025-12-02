@@ -244,7 +244,7 @@ async function updateExpiredReservations(connection: any) {
       period_time,
       status,
       CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
-      NOW() as current_time,
+      NOW() as current_datetime,
       CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
     FROM nodelogin.bookingsTest
     WHERE (status = 'occupied' OR status = 'pending')
@@ -333,8 +333,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
   const role = searchParams.get('role');
-  
-  let connection;
+  let advisorEmail;
+
+  let connection, connection2;
   try {
     connection = await mysql.createConnection({
       host: process.env.DB_HOST,
@@ -344,13 +345,10 @@ export async function POST(request: Request) {
       charset: 'utf8mb4'
     });
 
-    const expiredCount = await updateExpiredReservations(connection);
-    console.log(`POST: Updated ${expiredCount} expired reservations`);
-
     // Parse request body
     const body = await request.json();
     
-    let username, major, room, seats;
+    let username, major, room, seats, advisor_name;
 
     if (role === 'student') {
       // Student sends: { username, major, room, seats, email }
@@ -358,6 +356,12 @@ export async function POST(request: Request) {
       major = body.major;
       room = body.room;
       seats = body.seats;
+      advisor_name = seats[0]?.advisor_name;
+
+      console.log('=== DEBUG ADVISOR ===');
+      console.log('advisor_name received:', advisor_name);
+      console.log('advisor_name type:', typeof advisor_name);
+      console.log('advisor_name length:', advisor_name?.length);
       
     } else if (role === 'admin') {
       // Admin sends: { username, room, seats, email } - no major field
@@ -366,13 +370,42 @@ export async function POST(request: Request) {
       room = body.room;
       seats = body.seats;
     }
+  
+    const expiredCount = await updateExpiredReservations(connection);
+    console.log(`POST: Updated ${expiredCount} expired reservations`);
 
+    
     // Validation
     if (!username || !major || !room || !seats || !Array.isArray(seats)) {
       return NextResponse.json({
         error: 'Missing required fields'
       }, { status: 400 });
     }
+
+        if (role === 'student') {
+      // Connection 2: For staff/advisors (DB_NAME2)
+      connection2 = await mysql.createConnection({
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME2,
+        charset: 'utf8mb4'  
+      });
+
+      const [advisorRows] = await connection2.query(
+        'SELECT staff_email FROM staff WHERE staff_name = ?',
+        [advisor_name]
+      );
+
+      if (!advisorRows || (advisorRows as any[]).length === 0) {
+        return NextResponse.json({
+          error: `Advisor "${advisor_name}" not found`
+        }, { status: 404 });
+      }
+
+      advisorEmail = (advisorRows as any[])[0].staff_email;
+    }
+
 
     // Check if any seats are already occupied (for BOTH roles)
     const seatIds = seats.map((s: any) => s.seat);
@@ -445,7 +478,7 @@ export async function POST(request: Request) {
     await sendReservationConfirmationEmail('naruesorn@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink);
     
     if (role === 'student') {
-      await sendStudentPendingApprovalEmail('naruesorn@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink );
+      await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, confirmLink, rejectLink );
     }
     
     await connection.end();
@@ -463,13 +496,9 @@ export async function POST(request: Request) {
     }, { status: 500 });
   } finally {
     if (connection) await connection.end();
+    if (connection2) await connection2.end();
   }
 }
-
-
-
-
- 
 
 
 
@@ -482,7 +511,7 @@ export async function PUT(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME0
+      database: process.env.DB_NAME
     });
 
     // First, update any expired reservations
