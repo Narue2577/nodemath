@@ -1,4 +1,6 @@
 //api/reservations/route.ts
+import { getServerSession } from "next-auth" // 2 Dec 2025
+//import { authOptions } from "@/app/api/auth/[...nextauth]/route"  // 2 Dec 2025
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';

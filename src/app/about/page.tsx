@@ -30,7 +30,8 @@ export default function About() {
                 <p>2. Login. Remember your password (in processing of add case of forget password)</p>
                 <p>3. Select Room, Number of Seats, Seats</p>
                 <p>4. Booking. Mark your start date and expired date.</p>
-                <p>5. Confirm. Please submit if you complete all.</p>
+                <p>5. Confirm. Please submit and waiting permission from director and advisor.</p>
+                <p>6. Check on Cancellation to confirm that all reserved seats are occupied. </p>
                 <p>P.S. Do not forget to log out</p>
                 
             </div>

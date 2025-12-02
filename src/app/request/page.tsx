@@ -6,11 +6,14 @@ import Navbar from "../navbar/page";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from 'react';
 
+
 export default function Request() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { data: session, status } = useSession();
+    const userRole = session?.user?.role;
+  
 
   // Enhanced cancelBooking handler
   const cancelBooking = async (id, room, seat) => {
@@ -103,6 +106,9 @@ export default function Request() {
       <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
         <div className="p-4 space-y-4 md:p-5">
           <h1 className="text-3xl font-bold underline">Cancellations</h1>
+          <div>
+          <h1>{userRole === 'student' ? 'Student' : 'Admin'} Request</h1>
+          </div>
           <p className="text-base leading-relaxed text-gray-500 dark:text-gray-400">
             This section allows you to cancel your reservation if you are not satisfied with your booking or an unfortunate event interrupts your booking. 
             This table shows your current occupied reservations.
@@ -143,6 +149,12 @@ export default function Request() {
                     <th className="px-4 py-2 border border-gray-300">Date In</th>
                     <th className="px-4 py-2 border border-gray-300">Date Out</th>
                     <th className="px-4 py-2 border border-gray-300">Period Time</th>
+                    {userRole === 'student' && (
+                      <>
+                        <th className="px-4 py-2 border border-gray-300">Advisor Name</th>
+                        <th className="px-4 py-2 border border-gray-300">Advisor</th>
+                      </>
+                    )}
                     <th className="px-4 py-2 border border-gray-300">Admin</th>
                     <th className="px-4 py-2 border border-gray-300">Status</th>
                     <th className="px-4 py-2 border border-gray-300">Action</th>
@@ -159,6 +171,12 @@ export default function Request() {
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_in}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.date_out}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.period_time}</td>
+                          {userRole === 'student' && (
+                            <>
+                            <td className="px-4 py-2 border border-gray-300">{post.advisor_name}</td>
+                            <td className="px-4 py-2 border border-gray-300">{post.advisor}</td>
+                            </>
+                          )}
                           <td className="px-4 py-2 text-center border border-gray-300">{post.admin}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">{post.status}</td>
                           <td className="px-4 py-2 text-center border border-gray-300">

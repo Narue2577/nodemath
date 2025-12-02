@@ -8,7 +8,7 @@ async function updateExpiredReservations(connection: any) {
     console.log('Checking for expired reservations...');
     
     const query = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE nodelogin.bookingsTest
       SET status = 'complete', updated_at = NOW()
       WHERE (status = 'occupied' OR status = 'pending')
       AND STR_TO_DATE(
@@ -51,11 +51,13 @@ export async function GET(request: Request) {
 
     // ⭐ FIXED: Changed peroid_time to period_time (was misspelled)
     const selectQuery = `
-      SELECT id, room, seat, date_in, date_out, period_time, status,admin
-      FROM nodelogin.stud_reserv 
+      SELECT id, room, seat, date_in, date_out, period_time,advisor_name, advisor,  status,admin
+      FROM nodelogin.bookingsTest 
       WHERE username = ? AND (status = 'occupied' OR status = 'pending')
       ORDER BY created_at DESC
     `;
+
+   
 
     // Execute the query with the username parameter
     const [reservations] = await connection.execute(selectQuery, [username]);
@@ -80,6 +82,8 @@ export async function GET(request: Request) {
       date_in:  formatDate(post.date_in),
       date_out: formatDate(post.date_out),
       period_time: post.period_time, // ⭐ FIXED: Changed from peroid_time to period_time
+      advisor_name: post.advisor_name,
+      advisor: post.advisor,
       status: post.status,
       admin: post.admin
     }));
@@ -120,7 +124,7 @@ export async function PUT(request: Request) {
 
     // Check if the reservation exists
     const checkQuery = `
-      SELECT * FROM nodelogin.stud_reserv 
+      SELECT * FROM nodelogin.bookingsTest 
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
@@ -133,7 +137,7 @@ export async function PUT(request: Request) {
 
     // ⭐ FIXED: Changed peroid_time to period_time in UPDATE query
     const updateQuery = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE nodelogin.bookingsTest 
       SET date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;
