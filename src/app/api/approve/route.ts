@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get('token');
   const action = searchParams.get('action'); // 'confirm' or 'reject'
+  const approver = searchParams.get('approver'); // Get who is approving
 
   if (!token || !action) {
     return new Response(
@@ -43,17 +44,33 @@ export async function GET(request: Request) {
 
     const reservation = (reservations as any[])[0];
     const newStatus = action === 'confirm' ? 'occupied' : 'rejected';
+    const isConfirmed = action === 'confirm';
 
-    // Update status
-    await connection.execute(
-      'UPDATE nodelogin.bookingsTest SET status = ?, admin = ?,  updated_at = NOW() WHERE approval_token = ?',
+    if(isConfirmed){
+      let adminValue = 'o';
+       // Different update based on who approved
+      if (approver === 'admin') {
+        await connection.execute(
+      'UPDATE nodelogin.bookingsTest SET status = ?, admin = ?, updated_at = NOW() WHERE approval_token = ?',
       [newStatus,'o', token]
     );
+      } else if (approver === 'advisor') {
+        await connection.execute(
+      'UPDATE nodelogin.bookingsTest SET advisor = ?, updated_at = NOW() WHERE approval_token = ?',
+      ['o', token]
+    );
+      } else {
+        adminValue = 'x'; // default
+      }
+      
+    }
+    // Update status
+    
 
     await connection.end();
 
     // Return success page
-    const isConfirmed = action === 'confirm';
+   
     return new Response(
       `<html>
         <head>

@@ -427,8 +427,10 @@ export async function POST(request: Request) {
         occupiedSeats: (existingSeats as any[]).map(row => row.seat)
       }, { status: 409 });
     }
-    const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm`;
+    const confirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm&approver=admin`;
     const rejectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/reject?token=${approvalToken}`;
+    // Email 2 - For Advisor
+    const aaConfirmLink = `${process.env.NEXT_PUBLIC_BASE_URL}/api/approve?token=${approvalToken}&action=confirm&approver=advisor`;
 
     // Insert reservation with different status based on role
         const insertQuery = `
@@ -480,7 +482,7 @@ export async function POST(request: Request) {
     await sendReservationConfirmationEmail('naruesorn@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink);
     
     if (role === 'student') {
-      await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, confirmLink, rejectLink );
+      await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, aaConfirmLink, rejectLink );
     }
     
     await connection.end();

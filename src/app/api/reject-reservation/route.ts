@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Get reservation details
     const [reservations] = await connection.execute(
-      'SELECT * FROM nodelogin.stud_reserv WHERE approval_token = ? LIMIT 1',
+      'SELECT * FROM nodelogin.bookingsTest WHERE approval_token = ? LIMIT 1',
       [token]
     );
 
@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
 
     // Update status to rejected
     await connection.execute(
-      'UPDATE nodelogin.bookingsTest SET status = ? WHERE approval_token = ?',
-      ['rejected', token]
+      'UPDATE nodelogin.bookingsTest SET status = ?, remark = ? WHERE approval_token = ?',
+      ['rejected', reason, token]
     );
 
     // Get all seats for this booking

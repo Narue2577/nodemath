@@ -106,9 +106,9 @@ export default function Request() {
       <div className="max-w-6xl min-h-screen p-6 mx-auto bg-gray-50">
         <div className="p-4 space-y-4 md:p-5">
           <h1 className="text-3xl font-bold underline">Cancellations</h1>
-          <div>
+          {/*<div>
           <h1>{userRole === 'student' ? 'Student' : 'Admin'} Request</h1>
-          </div>
+          </div>*/}
           <p className="text-base leading-relaxed text-gray-500 dark:text-gray-400">
             This section allows you to cancel your reservation if you are not satisfied with your booking or an unfortunate event interrupts your booking. 
             This table shows your current occupied reservations.

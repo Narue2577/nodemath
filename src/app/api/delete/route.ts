@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest) {
       });
       
       const updateQuery = `
-        UPDATE nodelogin.stud_reserv 
+        UPDATE nodelogin.bookingsTest
         SET status = 'cancelled', updated_at = NOW()
         WHERE id = ? AND status = 'occupied'
       `;
@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest) {
     
     // First check if record exists
     const checkQuery = `
-      SELECT * FROM nodelogin.stud_reserv 
+      SELECT * FROM nodelogin.bookingsTest
       WHERE username = ? AND room = ? AND seat = ? AND status = 'occupied'
     `;
     
@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest) {
     
     // Update the most recent reservation for this user/room/seat combination
     const updateQuery = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE nodelogin.bookingsTest
       SET status = 'cancelled', updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ? AND status = 'occupied'
       ORDER BY created_at DESC 
