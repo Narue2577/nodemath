@@ -28,6 +28,7 @@ async function sendReservationConfirmationEmail(
  
 
 ) {
+  const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: recipientEmail,
@@ -119,7 +120,39 @@ async function sendReservationConfirmationEmail(
     `
 ,
   };
+  // Create timeout promise
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Email send timeout after 5 minutes'));
+    }, TIMEOUT_MS);
+  });
+ /*try {
+    // Race between sending email and timeout
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      timeoutPromise
+    ]);
 
+    // Success - update status to 'sent'
+    await updateEmailStatus(emailId, 'sent', info.messageId);
+
+    return {
+      success: true,
+      messageId: info.messageId,
+      status: 'sent'
+    };
+
+  } catch (error: any) {
+    // Timeout or error - update status to 'rejected'
+    await updateEmailStatus(emailId, 'rejected', undefined, error.message);
+
+    return {
+      success: false,
+      error: error.message,
+      status: 'rejected'
+    };
+  }
+} */ 
   await transporter.sendMail(mailOptions);
 }
 

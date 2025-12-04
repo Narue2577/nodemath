@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     );
       } else if (approver === 'advisor') {
         await connection.execute(
-      'UPDATE nodelogin.bookingsTest SET advisor = ?, updated_at = NOW() WHERE approval_token = ?',
+      'UPDATE nodelogin.bookingsTest SET advisor = ?, updated_at = NOW() WHERE approval_token = ? AND advisor_name != "-" ',
       ['o', token]
     );
       } else {
