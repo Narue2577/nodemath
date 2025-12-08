@@ -16,6 +16,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
+  const [pendingSeats, setPendingSeats] = useState({});
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(10);
@@ -146,17 +147,27 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         const data = await response.json();
         // Group reservations by room
         const reservationsByRoom:any = {};
+        const pendingByRoom:any = {}; // 8 Dec 2025
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
             if (reservation.room && reservation.seat) {
+             if (reservation.status === 'pending') {
+              if (!pendingByRoom[reservation.room]) {
+                pendingByRoom[reservation.room] = [];
+              }
+              pendingByRoom[reservation.room].push(reservation.seat);
+            } else {
+              // Confirmed/occupied reservations
               if (!reservationsByRoom[reservation.room]) {
                 reservationsByRoom[reservation.room] = [];
               }
               reservationsByRoom[reservation.room].push(reservation.seat);
             }
+            }
           });
         }
         setBookings(reservationsByRoom);
+        setPendingSeats(pendingByRoom); // 8 Dec 2025
       } else {
         console.warn('Failed to fetch reservations:', response.status);
         // Don't show error to user for failed fetches, just use empty bookings
@@ -165,6 +176,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       console.error('Error fetching reservations:', error);
       // Fallback to empty bookings if API is not available
       setBookings({});
+       setPendingSeats({}); // 8 Dec 2025
     } finally {
       setIsLoading(false);
     }
@@ -206,6 +218,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
             occupied: bookings[airplane.id]?.includes(seatId) || false,
             unused: airplane.unused.includes(seatId),
             selected: selectedSeats.includes(seatId), 
+             pending: pendingSeats[airplane.id]?.includes(seatId) || false, //  ADDED 8 Dec 2025
           });
         });
         
@@ -223,7 +236,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   };
 
   // Handle seat selection
-  const handleSeatClick = (seatId, occupied, unused) => {
+  const handleSeatClick = (seatId, occupied, unused, pending) => {
     if (occupied || unused) return;
 
     if (selectedSeats.includes(seatId)) {
@@ -460,7 +473,9 @@ const handleBulkDateTimeChange = (field, value) => {
       seatClasses += " bg-black border-gray-800 text-white cursor-not-allowed";
     } else if (seat.occupied) {
       seatClasses += " bg-red-500 border-red-600 text-white cursor-not-allowed";
-    } else if (seat.selected) {
+    }  else if (seat.pending) { // Check pending before selected
+    seatClasses += " bg-yellow-200 border-yellow-400 text-gray-800 cursor-not-allowed"; // Fixed text color
+      }else if (seat.selected) {
       seatClasses += " bg-blue-500 border-blue-600 text-white transform scale-110";
     } else {
       seatClasses += " bg-green-100 border-green-400 text-green-800 hover:bg-green-200";
@@ -471,9 +486,9 @@ const handleBulkDateTimeChange = (field, value) => {
         key={seat.id}
         className={seatClasses}
         onClick={() => handleSeatClick(seat.id, seat.occupied, seat.unused)}
-        title={`Seat ${seat.id} - ${seat.section} ${seat.unused ? '(Not Available)' : seat.occupied ? '(Occupied)' : '(Available)'}`}
+        title={`Seat ${seat.id} - ${seat.section} ${seat.unused ? '(Not Available)' : seat.occupied ? '(Occupied)' : seat.pending ? '(Pending)' : '(Available)'}`} // 8Dec 2025
       >
-        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3 text-white" /> : seat.selected ? <Check className="w-3 h-3 text-white" /> : seat.letter}
+        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3 text-white" /> : seat.pending ? 'P' : seat.selected ? <Check className="w-3 h-3 text-white" /> : seat.letter}
       </div>
     );
   };

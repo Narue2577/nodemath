@@ -1,6 +1,4 @@
 //api/reservations/route.ts
-import { getServerSession } from "next-auth" // 2 Dec 2025
-//import { authOptions } from "@/app/api/auth/[...nextauth]/route"  // 2 Dec 2025
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
@@ -28,7 +26,7 @@ async function sendReservationConfirmationEmail(
  
 
 ) {
-  const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+ // const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: recipientEmail,
@@ -121,11 +119,6 @@ async function sendReservationConfirmationEmail(
 ,
   };
   // Create timeout promise
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error('Email send timeout after 5 minutes'));
-    }, TIMEOUT_MS);
-  });
  /*try {
     // Race between sending email and timeout
     const info = await Promise.race([
@@ -163,12 +156,13 @@ async function sendStudentPendingApprovalEmail(
   room: any,
   seatDetails: any,
   confirmLink: any,
-  rejectLink: any
+  rejectLink: any,
+  advisor: any
 ) {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: recipientEmail,
-    subject: 'Reservation Pending Approval',
+    subject: `ขออนุมัติจาก${advisor}`,
         html: `
       <!DOCTYPE html>
       <html>
@@ -186,7 +180,7 @@ async function sendStudentPendingApprovalEmail(
           <!-- Content -->
           <div style="padding: 30px;">
             <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-              เรียน <strong></strong> (ผู้อนุมัติรายการจองห้อง)
+              เรียน <strong>${advisor}</strong> (ผู้อนุมัติรายการจองห้อง)
             </p>
             
             <p style="font-size: 15px; color: #555; line-height: 1.6;">
@@ -515,7 +509,7 @@ export async function POST(request: Request) {
     await sendReservationConfirmationEmail('naruesorn@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink);
     
     if (role === 'student') {
-      await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, aaConfirmLink, rejectLink );
+      await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, aaConfirmLink, rejectLink, advisor_name );
     }
     
     await connection.end();

@@ -16,7 +16,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
   const today2 = new Date(today);
   today2.setDate(today2.getDate() );
   const minDate = today2.toISOString().split('T')[0];
-  
+  const [pendingSeats, setPendingSeats] = useState({}); //8 Dec 2025
   const [selectedAirplane, setSelectedAirplane] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [passengerCount, setPassengerCount] = useState(10);
@@ -144,17 +144,31 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
         const data = await response.json();
         // Group reservations by room
         const reservationsByRoom:any = {};
+        const pendingByRoom:any = {}; //  ADDED 8 Dec 2025
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
             if (reservation.room && reservation.seat) {
+         //     if (!reservationsByRoom[reservation.room]) {
+         //       reservationsByRoom[reservation.room] = [];
+         //     }
+         //     reservationsByRoom[reservation.room].push(reservation.seat);
+         //   }
+         if (reservation.status === 'pending') {
+              if (!pendingByRoom[reservation.room]) {
+                pendingByRoom[reservation.room] = [];
+              }
+              pendingByRoom[reservation.room].push(reservation.seat);
+            } else {
+              // Confirmed/occupied reservations
               if (!reservationsByRoom[reservation.room]) {
                 reservationsByRoom[reservation.room] = [];
               }
               reservationsByRoom[reservation.room].push(reservation.seat);
-            }
+            } }
           });
         }
         setBookings(reservationsByRoom);
+        setPendingSeats(pendingByRoom)
       } else {
         console.warn('Failed to fetch reservations:', response.status);
         // Don't show error to user for failed fetches, just use empty bookings
@@ -163,6 +177,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
       console.error('Error fetching reservations:', error);
       // Fallback to empty bookings if API is not available
       setBookings({});
+      setPendingSeats({}); // 8 Dec 2025
     } finally {
       setIsLoading(false);
     }
@@ -192,6 +207,7 @@ const AirplaneSeatBookingAdmin: React.FC<AirplaneSeatBookingAdminProps> = ({ tab
             occupied: bookings[airplane.id]?.includes(seatId) || false,
             unused: airplane.unused.includes(seatId),
             selected: selectedSeats.includes(seatId), 
+            pending: pendingSeats[airplane.id]?.includes(seatId) || false, // 8 Dec 2025
           });
         });
         
@@ -480,7 +496,7 @@ const handleBulkDateTimeChange = (field, value) => {
     } else if (seat.selected) {
       seatClasses += " bg-blue-500 border-blue-600 text-white transform scale-110";
     }  else if (seat.pending) {
-      seatClasses += " bg-yellow-500 border-yellow-600 text-white transform scale-110";
+      seatClasses += " bg-yellow-200 border-yellow-400 text-white transform cursor-not-allowed";
     }else {
       seatClasses += " bg-green-100 border-green-400 text-green-800 hover:bg-green-200";
     }
@@ -489,10 +505,10 @@ const handleBulkDateTimeChange = (field, value) => {
       <div
         key={seat.id}
         className={seatClasses}
-        onClick={() => handleSeatClick(seat.id, seat.occupied, seat.unused)}
-        title={`Seat ${seat.id} - ${seat.section} ${seat.unused ? '(Not Available)' : seat.occupied ? '(Occupied)' : '(Available)'}`}
+        onClick={() => handleSeatClick(seat.id, seat.occupied, seat.unused, seat.pending)} // 8 Dec 2025
+        title={`Seat ${seat.id} - ${seat.section} ${seat.unused ? '(Not Available)' : seat.occupied ? '(Occupied)' : seat.pending ? '({Pending})': '(Available)'}`}
       >
-        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3 text-white" /> : seat.selected ? <Check className="w-3 h-3 text-white" /> : seat.letter}
+        {seat.unused ? 'X' : seat.occupied ? <X className="w-3 h-3 text-white" /> : seat.pending ? 'P': seat.selected ? <Check className="w-3 h-3 text-white" /> : seat.letter}
       </div>
     );
   };
@@ -815,10 +831,10 @@ const handleBulkDateTimeChange = (field, value) => {
                 <div className="w-4 h-4 bg-red-500 border-2 border-red-600"></div>
                 <span>Occupied</span>
               </div>
-             {/* <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-500 border-2 border-yellow-600"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-400"></div>
                 <span>Pending</span>
-              </div> */}
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-black border-2 border-gray-800"></div>
                 <span>Not Available</span>
