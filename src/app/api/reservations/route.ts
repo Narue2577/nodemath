@@ -48,7 +48,7 @@ async function sendReservationConfirmationEmail(
           <!-- Content -->
           <div style="padding: 30px;">
             <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
-              เรียน <strong></strong> (ผู้อนุมัติรายการจองห้อง)
+              เรียน <strong>ผศ.ดร.ปรวัน แพทยานนท์</strong> (ผู้อนุมัติรายการจองห้อง)
             </p>
             
             <p style="font-size: 15px; color: #555; line-height: 1.6;">

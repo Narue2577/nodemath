@@ -457,7 +457,7 @@ const handleBulkDateTimeChange = (field, value) => {
     }
 
     if (response.ok) {
-      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}! but you need to get confirmed by Admin. Please check your status of reservations`);
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}! but you need to get confirmed by Admin. Please check your status of reservations.`);
       setSelectedSeats([]);
       setDateTimeInputs({});
       setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });

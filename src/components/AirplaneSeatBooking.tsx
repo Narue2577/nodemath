@@ -437,7 +437,7 @@ const handleBulkDateTimeChange = (field, value) => {
     }
 
     if (response.ok) {
-      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}!`);
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedAirplane.name}! but you need to get confirmed by Admin and Advisor. Please check your status of reservations.`);
       setSelectedSeats([]);
       setDateTimeInputs({});
       setBulkDateTimeInputs({ dateIn: '', dateOut: '', periodTime: 'choose' });
@@ -824,6 +824,10 @@ const handleBulkDateTimeChange = (field, value) => {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-black border-2 border-gray-800"></div>
                 <span>Not Available</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-400"></div>
+                <span>Pending</span>
               </div>
             </div>
 
