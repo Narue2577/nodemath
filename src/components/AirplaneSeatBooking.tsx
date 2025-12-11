@@ -776,7 +776,7 @@ const handleBulkDateTimeChange = (field, value) => {
           >
             <div className="flex items-center gap-2">
               <User className="w-4 h-4" />
-              <span className="font-medium">Single</span>
+              <span className="font-medium">Custom</span>
             </div>
           </button>
           <button
@@ -789,7 +789,7 @@ const handleBulkDateTimeChange = (field, value) => {
           >
             <div className="flex items-center gap-2">
               <Users2 className="w-4 h-4" />
-              <span className="font-medium">Room</span>
+              <span className="font-medium">All</span>
             </div>
           </button>
         </div>
@@ -813,10 +813,10 @@ const handleBulkDateTimeChange = (field, value) => {
                 <div className="w-4 h-4 bg-green-100 border-2 border-green-400"></div>
                 <span>Available</span>
               </div>
-              <div className="flex items-center gap-2">
+            {/*  <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 border-2 border-blue-600"></div>
                 <span>Selected</span>
-              </div>
+              </div>*/}
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-500 border-2 border-red-600"></div>
                 <span>Occupied</span>
@@ -841,7 +841,7 @@ const handleBulkDateTimeChange = (field, value) => {
         )}
 
         {/* Booking Table */}
-        {selectedSeats.length > 0 && <BookingTable />}
+         <BookingTable />
       </div>
     </div>
   );
