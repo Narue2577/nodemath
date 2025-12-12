@@ -530,9 +530,10 @@ const handleBulkDateTimeChange = (field, value) => {
         <p><strong>Major:</strong> {major}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
-        {session?.user?.email && (
+        <button>Add</button>
+      {/*  {session?.user?.email && (
           <p><strong>Email:</strong> {session.user.email}</p>
-        )}
+        )}*/} 
       </div>
      
         {(bookingType === 'room') &&
