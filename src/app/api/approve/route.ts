@@ -337,6 +337,7 @@ export async function GET(request: Request) {
   */}
 
 // app/api/approve/route.ts
+// app/api/approve/route.ts
 import mysql from 'mysql2/promise';
 
 export async function GET(request: Request) {
@@ -361,7 +362,7 @@ export async function GET(request: Request) {
       database: process.env.DB_NAME
     });
 
-    // Check if reservation exists and is not already rejected or occupied
+    // Check if reservation exists
     const [reservations] = await connection.execute(
       'SELECT * FROM nodelogin.bookingsTest WHERE approval_token = ?',
       [token]
@@ -382,44 +383,14 @@ export async function GET(request: Request) {
 
     const reservation = (reservations as any[])[0];
 
-    // Check if already rejected
-    if (reservation.status === 'rejected') {
+    // *** UNIFIED CHECK: Block if already processed (rejected OR fully confirmed) ***
+    if (reservation.status === 'rejected' || reservation.status === 'occupied') {
       await connection.end();
       return new Response(
         `<html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1 style="color: #f44336;">✗ Already Rejected</h1>
-            <p>This reservation has already been rejected.</p>
-          </body>
-        </html>`,
-        { headers: { 'Content-Type': 'text/html' } }
-      );
-    }
-
-    // Check if already fully approved (occupied)
-    if (reservation.status === 'occupied') {
-      await connection.end();
-      return new Response(
-        `<html>
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Already Confirmed</title>
-          </head>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f5f5f5;">
-            <div style="background: white; padding: 40px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-              <h1 style="color: #ff9800;">⚠️ Already Processed</h1>
-              <p style="font-size: 18px; margin-bottom: 30px;">
-                This reservation has already been confirmed or rejected.
-              </p>
-              <div style="background: #f9f9f9; padding: 20px; border-radius: 5px; text-align: left;">
-                <p><strong>Student:</strong> ${reservation.username}</p>
-                <p><strong>Room:</strong> ${reservation.room}</p>
-                <p><strong>Seat:</strong> ${reservation.seat}</p>
-                <p><strong>Status:</strong> <span style="color: #4CAF50;">occupied</span></p>
-              </div>
-              <p style="margin-top: 30px; color: #666;">You can close this window now.</p>
-            </div>
+            <h1 style="color: #ff9800;">⚠️ Already Processed</h1>
+            <p>This reservation has already been confirmed or rejected.</p>
           </body>
         </html>`,
         { headers: { 'Content-Type': 'text/html' } }

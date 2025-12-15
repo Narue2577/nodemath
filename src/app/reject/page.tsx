@@ -31,10 +31,10 @@ export default function RejectPage() {
         setMessage('✅ ส่งอีเมลปฏิเสธเรียบร้อยแล้ว');
         setTimeout(() => window.close(), 2000);
       } else {
-        setMessage('❌ เกิดข้อผิดพลาด');
+        setMessage('เกิดข้อผิดพลาด');
       }
     } catch (error) {
-      setMessage('❌ เกิดข้อผิดพลาด');
+      setMessage('เกิดข้อผิดพลาด');
     } finally {
       setLoading(false);
     }

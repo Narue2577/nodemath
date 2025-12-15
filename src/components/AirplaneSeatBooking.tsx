@@ -26,6 +26,15 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const [isLoading, setIsLoading] = useState(false);
   const [bookingType, setBookingType] = useState('single'); // 'single' or 'room'
   const [maxSeats, setMaxSeats] = useState(1);
+   // State for form inputs
+  const [formData, setFormData] = useState({
+    seatId: '',
+    dateIn: '',
+    dateOut: '',
+    periodTime: 'choose',
+    status: 'pending',
+    Action: 'remove'
+  });
    // Bulk datetime input for all seats
   const [bulkDateTimeInputs, setBulkDateTimeInputs] = useState({
       dateIn: '',
@@ -68,6 +77,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   console.log("Session Data:", session);
   console.log("Using username:", username);
   console.log('Field:', session?.user?.field);
+  
+  //Function to handle input
   
   // Sample airplane data with different configurations
   const airplanes = [
@@ -524,13 +535,14 @@ const handleBulkDateTimeChange = (field, value) => {
   const BookingTable = () => (
     <div className="p-6 mb-6 rounded-lg bg-blue-50">
       <h3 className="mb-4 text-lg font-semibold text-blue-800">Booking Summary</h3>
-         
+      
       <div className="mb-4 text-sm">
         <p><strong>Username:</strong> {username}</p>
         <p><strong>Major:</strong> {major}</p>
         <p><strong>Room:</strong> {selectedAirplane?.name}</p>
         <p><strong>Total Seats:</strong> {selectedSeats.length}</p>
-        <button>Add</button>
+        
+         
       {/*  {session?.user?.email && (
           <p><strong>Email:</strong> {session.user.email}</p>
         )}*/} 
@@ -587,26 +599,49 @@ const handleBulkDateTimeChange = (field, value) => {
 }
       {(bookingType === 'single')  &&
       <div className="overflow-x-auto">
-        <table className="w-full bg-white border border-gray-300 rounded-lg">
+        <table className="w-full border-collapse bg-white border border-gray-300 rounded-lg">
           <thead>
             <tr className="bg-gray-50">
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
                 Seat ID
               </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
                 Date In
               </th>  
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
                 Date Out
               </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
                 Period Time
               </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
                 Status
               </th>
-              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b">
-                Action
+              <th className="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase border-b border border-gray-300">
+                <button
+            //onClick={() => handleBookingTypeSelect('single')}
+            className={`px-4 py-2 mx-3 rounded-lg border-2 transition-all ${
+              bookingType === 'single'
+                ? 'border-blue-700 bg-blue-900 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Add</span>
+            </div>
+          </button>/
+          <button
+           // onClick={() => handleBookingTypeSelect('single')}
+            className={`px-4 py-2 mx-3 rounded-lg border-2 transition-all ${
+              bookingType === 'single'
+                ? 'border-blue-700 bg-blue-900 text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-medium">All</span>
+            </div>
+          </button>
               </th>
             </tr>
           </thead>
@@ -617,7 +652,7 @@ const handleBulkDateTimeChange = (field, value) => {
               
               return (
                 <tr key={seatId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border border-gray-300">
                     <div className="flex items-center">
                       <div className="flex items-center justify-center w-6 h-6 mr-2 text-xs font-medium text-white bg-blue-500 border border-blue-600 rounded">
                         <Check className="w-3 h-3" />
@@ -625,7 +660,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       {seatId}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-300">
                     <input 
                       type="date" 
                       className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -637,7 +672,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       required
                     /> 
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-300">
                     <input 
                       type="date" 
                       className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -649,7 +684,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       required
                     />
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-300">
                     <select 
                       className={`px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         !seatData.periodTime || seatData.periodTime === 'choose' ? 'border-red-300 bg-red-50' : 'border-gray-300'
@@ -664,7 +699,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       <option value="9:00-16:00">9:00 - 16:00</option>
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-4 py-3 text-sm border border-gray-300">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       isComplete 
                         ? 'text-green-800 bg-green-100' 
@@ -673,7 +708,7 @@ const handleBulkDateTimeChange = (field, value) => {
                       {isComplete ? 'Ready' : 'Incomplete'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-4 py-3 text-sm border border-gray-300">
                     <button
                       onClick={() => handleRemoveSeat(seatId)}
                       className="text-red-600 transition-colors duration-200 hover:text-red-800"
