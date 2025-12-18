@@ -30,7 +30,7 @@ async function sendReservationConfirmationEmail(
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: recipientEmail,
-    subject: 'ขออนุมัติจากผศ.ดร.ปรวัน แพทยานนท์',
+    subject: 'ขออนุมัติจากนายณภัทร สุบรรณพงษ์',
      html: `
       <!DOCTYPE html>
       <html>
@@ -507,7 +507,7 @@ export async function POST(request: Request) {
     //await connection.query(insertQuery, [values]);
     
     // Send emails
-    await sendReservationConfirmationEmail('naruesorn@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink);
+    await sendReservationConfirmationEmail('napatsu@g.swu.ac.th', username, room, seatDetails, confirmLink, rejectLink);
     
     if (role === 'student') {
       await sendStudentPendingApprovalEmail(advisorEmail, username, room, seatDetails, aaConfirmLink, rejectLink, advisor_name );

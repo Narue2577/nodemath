@@ -7,12 +7,12 @@ import { useSession } from "next-auth/react";
 
 /* eslint-disable */
 interface AirplaneSeatBookingProps {
-  tableHeader?: string; // This can be removed if you only use session
+  tableHeader?: string;
 }
 
 const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }) => {
   const { data: session, status } = useSession();
-   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [inputMode, setInputMode] = useState('add');
   const [bookings, setBookings] = useState({});
@@ -33,19 +33,14 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   const [options, setOptions] = useState([]);
   const [selectedAdvisor, setSelectedAdvisor] = useState('');
 
- // Get username from session or fallback to prop
-  const username =  session?.user?.name || tableHeader || 'Guest';
+  // Get username from session or fallback to prop
+  const username = session?.user?.name || tableHeader || 'Guest';
   const major = session?.user?.field || 'Not specified';
-  // Show loading state while checking authentication
-  
-
   
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
-
-  
 
   const rooms = [
     {
@@ -108,61 +103,54 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         { section: 'Room 802', rows: 8, seatsPerRow: 8, seatWidth: 'A B C D   E F G H' }
       ]
     }
-
   ];
 
-  // Fetch reservations from database with better error handling
+  // Fetch reservations from database
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
-      //  const response = await fetch('/api/reservations', { original
-        const response = await fetch('/api/reservations?role=student', { //18 Nov 2568
+      const response = await fetch('/api/reservations?role=student', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
 
       if (response.ok) {
         const data = await response.json();
-        // Group reservations by room
         const reservationsByRoom:any = {};
-        const pendingByRoom:any = {}; // 8 Dec 2025
+        const pendingByRoom:any = {};
+        
         if (data.reservations && Array.isArray(data.reservations)) {
           data.reservations.forEach(reservation => {
             if (reservation.room && reservation.seat) {
-             if (reservation.status === 'pending') {
-              if (!pendingByRoom[reservation.room]) {
-                pendingByRoom[reservation.room] = [];
+              if (reservation.status === 'pending') {
+                if (!pendingByRoom[reservation.room]) {
+                  pendingByRoom[reservation.room] = [];
+                }
+                pendingByRoom[reservation.room].push(reservation.seat);
+              } else {
+                if (!reservationsByRoom[reservation.room]) {
+                  reservationsByRoom[reservation.room] = [];
+                }
+                reservationsByRoom[reservation.room].push(reservation.seat);
               }
-              pendingByRoom[reservation.room].push(reservation.seat);
-            } else {
-              // Confirmed/occupied reservations
-              if (!reservationsByRoom[reservation.room]) {
-                reservationsByRoom[reservation.room] = [];
-              }
-              reservationsByRoom[reservation.room].push(reservation.seat);
-            }
             }
           });
         }
         setBookings(reservationsByRoom);
-        setPendingSeats(pendingByRoom); // 8 Dec 2025
+        setPendingSeats(pendingByRoom);
       } else {
         console.warn('Failed to fetch reservations:', response.status);
-        // Don't show error to user for failed fetches, just use empty bookings
       }
     } catch (error) {
       console.error('Error fetching reservations:', error);
-      // Fallback to empty bookings if API is not available
       setBookings({});
-       setPendingSeats({}); // 8 Dec 2025
+      setPendingSeats({});
     } finally {
       setIsLoading(false);
     }
   };
 
-
-
-    useEffect(() => {
+  useEffect(() => {
     fetch('/api/dropdown')
       .then((res) => res.json())
       .then((data) => {
@@ -174,16 +162,16 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         setIsLoading(false);
       });
   }, []); 
-  // Load reservations when component mounts
+
   useEffect(() => {
     fetchReservations();
   }, []);
 
-
   // Generate seat map
   const generateSeatMap = (room) => {
     const seatMap = [];
-    const seatLetters = room.layout.replace(/\s+/g, '').split('');
+    const seatPattern = room.layout[0].seatWidth;
+    const seatLetters = seatPattern.replace(/\s+/g, '').split('');
     
     for (let row = 1; row <= room.rows; row++) {
       const rowSeats = [];
@@ -201,7 +189,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       seatMap.push({
         rowNumber: row,
         seats: rowSeats,
-        layout: room.layout
+        layout: seatPattern
       });
     }
     
@@ -234,7 +222,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
       return;
     }
 
-    const seatLetters = selectedRoom.layout.replace(/\s+/g, '').split('');
+    const seatPattern = selectedRoom.layout[0].seatWidth;
+    const seatLetters = seatPattern.replace(/\s+/g, '').split('');
     const rowNum = parseInt(seatId.slice(0, -1));
     const seatLetter = seatId.slice(-1);
     
@@ -250,6 +239,11 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
 
     if (bookings[selectedRoom.id]?.includes(seatId)) {
       alert('This seat is already occupied');
+      return;
+    }
+
+    if (pendingSeats[selectedRoom.id]?.includes(seatId)) {
+      alert('This seat has a pending reservation');
       return;
     }
 
@@ -282,7 +276,6 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
   };
 
   const handleAddAllSeats = (e) => {
-    // **FIXED: Stop all event propagation**
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -294,13 +287,15 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
     }
 
     const availableSeats = [];
-    const seatLetters = selectedRoom.layout.replace(/\s+/g, '').split('');
+    const seatPattern = selectedRoom.layout[0].seatWidth;
+    const seatLetters = seatPattern.replace(/\s+/g, '').split('');
     
     for (let row = 1; row <= selectedRoom.rows; row++) {
       seatLetters.forEach((letter) => {
         const seatId = `${row}${letter}`;
         if (!selectedRoom.unused.includes(seatId) && 
             !bookings[selectedRoom.id]?.includes(seatId) &&
+            !pendingSeats[selectedRoom.id]?.includes(seatId) &&
             !selectedSeats.includes(seatId)) {
           availableSeats.push(seatId);
         }
@@ -351,48 +346,149 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
     setDateTimeInputs(newInputs);
   };
 
-  const handleBooking = () => {
-    if (selectedSeats.length === 0) {
-      alert('Please select at least one seat');
-      return;
+    // Improved booking validation and error handling
+const validateBookingData = () => {
+  if (selectedSeats.length === 0) {
+    return { valid: false, message: 'Please select at least one seat.' };
+  }
+
+  if (!selectedRoom) {
+    return { valid: false, message: 'Please select a room.' };
+  }
+
+  if (!selectedAdvisor) {
+    return { valid: false, message: 'Please select an advisor.' };
+  }
+
+  // FOR BULK/ALL MODE: Use bulkDateTime (single set of dates for all seats)
+  if (inputMode === 'all') {
+    if (!bulkDateTime.dateIn || !bulkDateTime.dateOut || !bulkDateTime.periodTime || bulkDateTime.periodTime === 'choose') {
+      return { valid: false, message: 'Please complete all date and time fields.' };
     }
 
-    if (!selectedAdvisor) {
-      alert('Please select an advisor');
-      return;
+    const dateIn = new Date(bulkDateTime.dateIn);
+    const dateOut = new Date(bulkDateTime.dateOut);
+
+    if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+      return { valid: false, message: 'Invalid date format.' };
     }
 
+    if (dateOut < dateIn) {
+      return { valid: false, message: 'End date must be after start date.' };
+    }
+
+    return { valid: true };
+  }
+
+  // FOR INDIVIDUAL MODE: Use dateTimeInputs (separate dates for each seat)
+  if (inputMode === 'add') {
     for (const seatId of selectedSeats) {
-      const data = dateTimeInputs[seatId];
-      if (!data || !data.dateIn || !data.dateOut || data.periodTime === 'choose') {
-        alert(`Please complete all fields for seat ${seatId}`);
-        return;
+      const seatData = dateTimeInputs[seatId];
+      
+      if (!seatData) {
+        return { valid: false, message: `Please fill in all fields for seat ${seatId}.` };
+      }
+      
+      if (!seatData.dateIn || !seatData.dateOut || !seatData.periodTime || seatData.periodTime === 'choose') {
+        return { valid: false, message: `Please complete all fields for seat ${seatId}.` };
+      }
+
+      const dateIn = new Date(seatData.dateIn);
+      const dateOut = new Date(seatData.dateOut);
+
+      if (isNaN(dateIn.getTime()) || isNaN(dateOut.getTime())) {
+        return { valid: false, message: `Invalid date format for seat ${seatId}.` };
+      }
+      
+      if (dateOut < dateIn) {
+        return { valid: false, message: `End date must be after start date for seat ${seatId}.` };
       }
     }
+  }
 
-    const newBookings = { ...bookings };
-    if (!newBookings[selectedRoom.id]) {
-      newBookings[selectedRoom.id] = [];
-    }
-    newBookings[selectedRoom.id] = [...newBookings[selectedRoom.id], ...selectedSeats];
-    setBookings(newBookings);
+  return { valid: true };
+};
 
-    alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedRoom.name}!`);
-    
-    setSelectedSeats([]);
-    setDateTimeInputs({});
-    setBulkDateTime({ dateIn: '', dateOut: '', periodTime: 'choose' });
-    setFormInput({ seatId: '', dateIn: '', dateOut: '', periodTime: 'choose' });
-    setSelectedAdvisor('');
+// Enhanced booking handler with better error handling
+const handleBooking = async () => {
+  const validation = validateBookingData();
+  
+  if (!validation.valid) {
+    alert(validation.message);
+    return;
+  }
+
+  setIsLoading(true);
+
+  // Create payload BEFORE resetting states
+  const payload = {
+    username: username,
+    major: major,
+    room: selectedRoom.id,
+    seats: selectedSeats.map(seatId => ({
+      seat: seatId,
+      date_in: inputMode === 'add' ? dateTimeInputs[seatId].dateIn : bulkDateTime.dateIn,
+      date_out: inputMode === 'add' ? dateTimeInputs[seatId].dateOut : bulkDateTime.dateOut,
+      period_time: inputMode === 'add' ? dateTimeInputs[seatId].periodTime : bulkDateTime.periodTime,
+      advisor_name: selectedAdvisor,
+    })),
   };
 
+  console.log("Booking payload:", payload);
+
+  try {
+    const response = await fetch('/api/reservations?role=student', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let responseData;
+    try {
+      responseData = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      throw new Error('Invalid response from server');
+    }
+
+    if (response.ok) {
+      alert(`Successfully booked ${selectedSeats.length} seat(s) in ${selectedRoom.name}! You need to get confirmed by Admin and Advisor. Please check your reservation status.`);
+      
+      // Reset states after successful booking
+      setSelectedSeats([]);
+      setDateTimeInputs({});
+      setBulkDateTime({ dateIn: '', dateOut: '', periodTime: 'choose' });
+      setFormInput({ seatId: '', dateIn: '', dateOut: '', periodTime: 'choose' });
+      setSelectedAdvisor('');
+      
+      // Refresh reservations from database
+      await fetchReservations();
+    } else {
+      const errorMessage = responseData?.message || responseData?.error || 'Failed to book seats';
+      console.error('Booking failed:', response.status, errorMessage);
+      alert(`Booking failed: ${errorMessage}`);
+    }
+  } catch (error) {
+    console.error('Network or parsing error:', error);
+    alert(`An error occurred while booking: ${error.message}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   const renderSeat = (seat) => {
+    const isPending = pendingSeats[selectedRoom.id]?.includes(seat.id) || false;
     let className = "w-10 h-10 border-2 flex items-center justify-center text-xs font-bold transition-all";
     
     if (seat.unused) {
       className += " bg-gray-800 border-gray-900 text-white";
     } else if (seat.occupied) {
       className += " bg-red-500 border-red-600 text-white";
+    } else if (isPending) {
+      className += " bg-yellow-400 border-yellow-500 text-gray-800";
     } else if (seat.selected) {
       className += " bg-blue-500 border-blue-600 text-white scale-110";
     } else {
@@ -439,7 +535,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
         {/* Room Selection */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6 w-full">
           <h2 className="text-xl font-bold mb-4 text-center">Select Room</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             {rooms.map((room) => (
               <div
                 key={room.id}
@@ -484,6 +580,10 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
                   <span>Selected</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-yellow-400 border-2 border-yellow-500"></div>
+                  <span>Pending</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-red-500 border-2 border-red-600"></div>
                   <span>Occupied</span>
                 </div>
@@ -500,7 +600,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
               </div>
             </div>
 
-            {/* **CHANGED: Combined Input Mode and Input Form in ONE section** */}
+            {/* Combined Input Mode and Input Form */}
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6 w-full">
               <h2 className="text-xl font-bold mb-4 text-center">Add Seats to Booking</h2>
               
@@ -534,7 +634,7 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
                         : 'border-gray-300 hover:border-blue-300'
                     }`}
                   >
-                    All 
+                    All Available
                   </button>
                 </div>
               </div>
@@ -611,6 +711,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
                         </button>
                       </div>
                     </div>
+                    
+                    
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -660,6 +762,8 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
                         </button>
                       </div>
                     </div>
+                    
+                    
                   </div>
                 )}
                 
@@ -670,102 +774,112 @@ const AirplaneSeatBooking: React.FC<AirplaneSeatBookingProps> = ({ tableHeader }
             </div>
 
             {/* Booking Summary */}
-            {selectedSeats.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6 w-full">
-                <h2 className="text-xl font-bold mb-4 text-center">Booking Summary</h2>
-                
-                <div className="mb-6 text-center">
-                  <p className="text-gray-700"><strong>Username:</strong> {username}</p>
-                  <p className="text-gray-700"><strong>Major:</strong> {major}</p>
-                  <p className="text-gray-700"><strong>Room:</strong> {selectedRoom.name}</p>
-                  <p className="text-gray-700"><strong>Total Seats:</strong> {selectedSeats.length}</p>
-                </div>
+{selectedSeats.length > 0 && (
+  <div className="bg-white rounded-xl shadow-lg p-6 w-full">
+    <h2 className="text-xl font-bold mb-4 text-center">Booking Summary</h2>
+    
+    <div className="mb-6 text-center">
+      <p className="text-gray-700"><strong>Username:</strong> {username}</p>
+      <p className="text-gray-700"><strong>Major:</strong> {major}</p>
+      <p className="text-gray-700"><strong>Room:</strong> {selectedRoom.name}</p>
+      <p className="text-gray-700"><strong>Total Seats:</strong> {selectedSeats.length}</p>
+    </div>
 
-                <div className="mb-6 overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border border-gray-300 px-4 py-2 text-center">Seat ID</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Date In</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Date Out</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Period Time</th>
-                        <th className="border border-gray-300 px-4 py-2 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedSeats.map((seatId) => (
-                        <tr key={seatId}>
-                          <td className="border border-gray-300 px-4 py-2 font-bold text-center">{seatId}</td>
-                          <td className="border border-gray-300 px-2 py-2">
-                            <input
-                              type="date"
-                              value={dateTimeInputs[seatId]?.dateIn || ''}
-                              onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
-                              min={minDate}
-                              className="w-full px-2 py-1 border rounded"
-                            />
-                          </td>
-                          <td className="border border-gray-300 px-2 py-2">
-                            <input
-                              type="date"
-                              value={dateTimeInputs[seatId]?.dateOut || ''}
-                              onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
-                              min={minDate}
-                              className="w-full px-2 py-1 border rounded"
-                            />
-                          </td>
-                          <td className="border border-gray-300 px-2 py-2">
-                            <select
-                              value={dateTimeInputs[seatId]?.periodTime || 'choose'}
-                              onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
-                              className="w-full px-2 py-1 border rounded"
-                            >
-                              <option value="choose">Choose</option>
-                              <option value="9:00-12:00">9:00 - 12:00</option>
-                              <option value="13:00-16:00">13:00 - 16:00</option>
-                              <option value="9:00-16:00">9:00 - 16:00</option>
-                            </select>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSeat(seatId)}
-                              className="text-red-600 hover:text-red-800 font-medium"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+    <div className="mb-6 overflow-x-auto">
+      {/* Remove All Button - Positioned above the table */}
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={() => setSelectedSeats([])}
+          className="text-red-600 hover:text-red-800 font-medium px-4 py-2 border border-red-600 rounded hover:bg-red-50 transition-colors"
+        >
+          Remove All
+        </button>
+      </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-medium mb-2 text-center">Select Advisor</label>
-                  <select
-                    value={selectedAdvisor}
-                    onChange={(e) => setSelectedAdvisor(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="">Choose advisor</option>
-                    {advisors.map((advisor) => (
-                      <option key={advisor.id} value={advisor.name}>
-                        {advisor.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border border-gray-300 px-4 py-2 text-center">Seat ID</th>
+            <th className="border border-gray-300 px-4 py-2 text-center">Date In</th>
+            <th className="border border-gray-300 px-4 py-2 text-center">Date Out</th>
+            <th className="border border-gray-300 px-4 py-2 text-center">Period Time</th>
+            <th className="border border-gray-300 px-4 py-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {selectedSeats.map((seatId) => (
+            <tr key={seatId}>
+              <td className="border border-gray-300 px-4 py-2 font-bold text-center">{seatId}</td>
+              <td className="border border-gray-300 px-2 py-2">
+                <input
+                  type="date"
+                  value={dateTimeInputs[seatId]?.dateIn || ''}
+                  onChange={(e) => handleDateTimeChange(seatId, 'dateIn', e.target.value)}
+                  min={minDate}
+                  className="w-full px-2 py-1 border rounded"
+                />
+              </td>
+              <td className="border border-gray-300 px-2 py-2">
+                <input
+                  type="date"
+                  value={dateTimeInputs[seatId]?.dateOut || ''}
+                  onChange={(e) => handleDateTimeChange(seatId, 'dateOut', e.target.value)}
+                  min={minDate}
+                  className="w-full px-2 py-1 border rounded"
+                />
+              </td>
+              <td className="border border-gray-300 px-2 py-2">
+                <select
+                  value={dateTimeInputs[seatId]?.periodTime || 'choose'}
+                  onChange={(e) => handleDateTimeChange(seatId, 'periodTime', e.target.value)}
+                  className="w-full px-2 py-1 border rounded"
+                >
+                  <option value="choose">Choose</option>
+                  <option value="9:00-12:00">9:00 - 12:00</option>
+                  <option value="13:00-16:00">13:00 - 16:00</option>
+                  <option value="9:00-16:00">9:00 - 16:00</option>
+                </select>
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
                 <button
                   type="button"
-                  onClick={handleBooking}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-bold"
+                  onClick={() => handleRemoveSeat(seatId)}
+                  className="text-red-600 hover:text-red-800 font-medium"
                 >
-                  Confirm Booking
+                  Remove
                 </button>
-              </div>
-            )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="mb-6">
+      <label className="block text-sm font-medium mb-2 text-center">Select Advisor</label>
+      <select 
+        className="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body"
+        value={selectedAdvisor}
+        onChange={(e) => setSelectedAdvisor(e.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.staff_id} value={option.staff_name}>
+            {option.staff_name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <button
+      type="button"
+      onClick={handleBooking}
+      className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-bold"
+    >
+      Confirm Booking
+    </button>
+  </div>
+)}
           </>
         )}
       </div>
