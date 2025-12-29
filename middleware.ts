@@ -8,7 +8,7 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        const publicRoutes = ["/", "/auth/register"];
+        const publicRoutes = ["/", "/auth/login"];
         const isPublic = publicRoutes.includes(req.nextUrl.pathname);
 
         // อนุญาตให้เข้าถึงหน้าแรก (/) และหน้าลงทะเบียน (/auth/register) ได้ทั่วไป

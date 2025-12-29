@@ -166,8 +166,20 @@ export default function RegisterPage() {
             </button>
           </div>
            <Link href="/auth/registers" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
-            Register
+            Register (Do not have account?)
           </Link>
+           <div className="grid grid-cols-2 gap-3">
+             <a href={`/${encodeURIComponent('ใบลาป่วย.pdf')}`}
+              target="_blank"
+              rel="noopener noreferrer" 
+              className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
+            FAQ
+          </a>
+            <a href="/policy" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
+            Policy
+          </a>
+        </div>
+
         </form>
       </div>
     </div>

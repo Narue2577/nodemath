@@ -42,7 +42,6 @@ export default function Navbar({ profile }: NavbarProps) {
             <a href="/profile" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
               Profile
             </a>
-            <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Cancellations</a>
            
            <a 
@@ -64,7 +63,6 @@ export default function Navbar({ profile }: NavbarProps) {
             <a href="/profile" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">
               Profile
             </a>
-            <a href="/about" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">About</a>
             <a href="/request" className="mr-4 text-sm font-semibold text-gray-800 hover:text-purple-600">Request</a>
 
             < a
