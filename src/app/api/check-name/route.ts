@@ -1,3 +1,4 @@
+//api/check-name
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: 'cosci_system',
+      database: process.env.DB_NAME2,
     });
     
     try {
