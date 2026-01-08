@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from "next/image";
 import Link from "next/link";
+import { Eye, EyeOff, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
@@ -22,6 +23,9 @@ export default function RegisterPage() {
   const [passwordError, setPasswordError] = useState('');
   const [showPopup, setShowPopup] = useState(true);
   const [isBuasriValidated, setIsBuasriValidated] = useState(true);
+   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRoleChange = (newRole: 'student' | 'teacher') => {
     setRole(newRole);
@@ -199,7 +203,15 @@ export default function RegisterPage() {
           <form onSubmit={handleRegisterClick} className="space-y-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-600">
-                Buasri ID
+                {role === 'student' ? (
+                  <>
+                    Student ID
+                  </>
+                ) : (
+                  <>
+                   Buasri ID
+                  </>
+                )}
               </label>
               <input
                 type="text"
