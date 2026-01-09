@@ -1,4 +1,4 @@
-//api/check-name
+// app/api/check-name/route.ts
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
@@ -7,10 +7,17 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { buasri, role } = body;
 
-    // Validate input (optional but recommended)
+    // Validate input
     if (!buasri || typeof buasri !== 'string') {
       return NextResponse.json(
-        { message: 'Name is required and must be a string' },
+        { message: 'ID is required and must be a string' },
+        { status: 400 }
+      );
+    }
+
+    if (!role || (role !== 'student' && role !== 'teacher')) {
+      return NextResponse.json(
+        { message: 'Valid role is required (student or teacher)' },
         { status: 400 }
       );
     }
@@ -24,27 +31,29 @@ export async function POST(req: Request) {
     });
     
     try {
-  // Check if the name exists in the database
-  const query = role == "student" 
-    ? 'SELECT * FROM student WHERE stu_buasri = ?' 
-    : 'SELECT * FROM staff WHERE staff_buasri = ?';
-  
-  const [rows] = await pool.query(query, [buasri]);
-  const exists = Array.isArray(rows) && rows.length > 0;
+      // Check if the ID exists in the database based on role
+      const query = role === "student" 
+        ? 'SELECT * FROM student INNER JOIN staff ON student.stu_advisor = staff.staff_id INNER JOIN major ON student.stu_major = major.maj_id WHERE stu_id = ?' 
+        : 'SELECT * FROM staff WHERE staff_buasri = ?';
+      
+      const [rows] = await pool.query(query, [buasri]);
+      const exists = Array.isArray(rows) && rows.length > 0;
 
-  return NextResponse.json({ 
-    exists: exists,
-    userData: exists ? rows[0] : null
-  });
-}catch (error) {
+      return NextResponse.json({ 
+        exists: exists,
+        userData: exists ? rows[0] : null
+      });
+
+    } catch (error) {
       console.error('Database error:', error);
       return NextResponse.json(
-        { message: 'Internal server error' },
+        { message: 'Database query failed' },
         { status: 500 }
       );
     } finally {
       await pool.end();
     }
+
   } catch (error) {
     console.error('Request parsing error:', error);
     return NextResponse.json(
@@ -56,5 +65,8 @@ export async function POST(req: Request) {
 
 // Handle other HTTP methods
 export async function GET() {
-  return NextResponse.json({ message: 'Method Not Allowed' }, { status: 405 });
+  return NextResponse.json(
+    { message: 'Method Not Allowed' }, 
+    { status: 405 }
+  );
 }

@@ -1,106 +1,217 @@
 'use client'
 /* eslint-disable */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
-  const [buasri, setBuasri] = useState('naruesorn');
-  const [role, setRole] = useState<'student' | 'teacher'>('teacher');
-  const [fullName, setFullName] = useState('นายนฤสรณ์ อริยสกุลวงศ์');
-  const [enName, setEnName] = useState('');
+  const [buasri, setBuasri] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
-  const [position, setPosition] = useState('นักวิชาการคอมพิวเตอร์');
-  const [email, setEmail] = useState('naruesorn@g.swu.ac.th');
-  const [phone, setPhone] = useState('089-496-5747');
+  const [advisor, setAdvisor] = useState('');
+  const [position, setPosition] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isPending, setIsPending] = useState(false);
-  const [buasriRegistered, setBuasriRegistered] = useState(true);
-  const [passwordError, setPasswordError] = useState('');
   const [showPopup, setShowPopup] = useState(true);
-  const [isBuasriValidated, setIsBuasriValidated] = useState(true);
-   const [message, setMessage] = useState('');
+  const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | null>(null);
 
-  const handleRoleChange = (newRole: 'student' | 'teacher') => {
-    setRole(newRole);
-    setBuasri('naruesorn');
-    setFullName('นายนฤสรณ์ อริยสกุลวงศ์');
-    setEnName('');
+  // Password validation
+  const passwordValidation = {
+    length: password.length >= 8 && password.length <= 15,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password)
+  };
+
+  const isPasswordValid = Object.values(passwordValidation).every(v => v);
+
+  // Handle role change
+  const handleRoleChange = (selectedRole: 'student' | 'teacher') => {
+    setRole(selectedRole);
+    setBuasri('');
+    setStudentId('');
+    setFullName('');
     setMajor('');
-    setPosition('นักวิชาการคอมพิวเตอร์');
-    setEmail('naruesorn@g.swu.ac.th');
-    setPhone('089-496-5747');
-    setPassword('');
-    setConfirmPassword('');
-    setBuasriRegistered(true);
+    setAdvisor('');
+    setPosition('');
+    setEmail('');
+    setPhone('');
+    setUserData(null);
+    setUsernameStatus(null);
+    setMessage('');
     setError('');
-    setIsBuasriValidated(true);
-    setStep(1);
   };
 
-  const validatePassword = (pass: string) => {
-    if (pass.length < 8 || pass.length > 15) {
-      return 'Password must be between 8-15 characters';
+  // Check username availability with debounce
+  const checkUsername = async (usernameValue: string) => {
+    if (!usernameValue.trim() || usernameValue.length < 3) {
+      setUsernameStatus(null);
+      return;
     }
-    if (!/[A-Z]/.test(pass)) {
-      return 'Password must contain at least one uppercase letter';
+
+    setIsCheckingUsername(true);
+    setUsernameStatus(null);
+    setError('');
+
+    try {
+      const response = await fetch('/api/check-name', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          buasri: usernameValue,
+          role: role 
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.exists) {
+        setUsernameStatus('taken');
+        setUserData(data.userData);
+        
+        // Auto-fill form fields from database
+        if (role === 'student') {
+          setFullName(data.userData.stu_name || '');
+          setPhone(data.userData.stu_phone || '');
+          setMajor(data.userData.maj_th_name || '');
+          setAdvisor(data.userData.staff_name || '');
+        } else {
+          setFullName(`${data.userData.staff_firstname || ''} ${data.userData.staff_lastname || ''}`);
+          setEmail(data.userData.staff_email || '');
+          setPhone(data.userData.staff_phone || '');
+          setPosition(data.userData.staff_position || '');
+        }
+      } else {
+        setUsernameStatus('available');
+        setUserData(null);
+        setError('This ID was not found in the database');
+      }
+    } catch (error) {
+      console.error('Error checking username:', error);
+      setMessage('Error checking ID availability');
+    } finally {
+      setIsCheckingUsername(false);
     }
-    if (!/[a-z]/.test(pass)) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!/[0-9]/.test(pass)) {
-      return 'Password must contain at least one number';
-    }
-    return '';
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPassword = e.target.value;
-    setPassword(newPassword);
-    const error = validatePassword(newPassword);
-    setPasswordError(error);
+  // Handle username input with debounce
+  const handleUsernameChange = (value: string) => {
+    if (role === 'student') {
+      setStudentId(value);
+    } else {
+      setBuasri(value);
+    }
+    setUsernameStatus(null);
+    setError('');
+    
+    // Clear previous timeout
+    if ((window as any).usernameTimeout) {
+      clearTimeout((window as any).usernameTimeout);
+    }
+
+    // Set new timeout to check after user stops typing
+    (window as any).usernameTimeout = setTimeout(() => {
+      checkUsername(value);
+    }, 500);
   };
 
+  // Handle step 1 submit
   const handleRegisterClick = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const currentId = role === 'student' ? studentId : buasri;
+
+    if (!currentId.trim()) {
+      setError('Please enter your ID');
+      return;
+    }
+
+    if (currentId.length < 3) {
+      setError('ID must be at least 3 characters');
+      return;
+    }
+
+    if (usernameStatus === 'available') {
+      setError('This ID was not found in the database');
+      return;
+    }
+
+    if (usernameStatus !== 'taken') {
+      setError('Please wait while we verify your ID');
+      return;
+    }
+
     setStep(2);
   };
 
+  // Handle final registration submit
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isPasswordValid) {
+      setError('Password does not meet all requirements');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    const passError = validatePassword(password);
-    if (passError) {
-      setPasswordError(passError);
-      return;
-    }
+
     setIsPending(true);
-    // TODO: Call your API here
-    console.log({
-      role,
-      buasri,
-      fullName,
-      enName,
-      major,
-      position,
-      email,
-      phone,
-      password,
-    });
-    setIsPending(false);
-    alert('Registration successful!');
+
+    try {
+      // TODO: Call your registration API here
+      const registrationData = {
+        role,
+        id: role === 'student' ? studentId : buasri,
+        fullName,
+        email,
+        phone,
+        password,
+        ...(role === 'student' ? { major, advisor } : { position })
+      };
+
+      console.log('Registration data:', registrationData);
+
+      // Example API call:
+      // const response = await fetch('/api/register', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(registrationData)
+      // });
+      // const result = await response.json();
+
+      alert('Registration successful!');
+      // Redirect to login page or dashboard
+      // router.push('/auth/login');
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError('Registration failed. Please try again.');
+    } finally {
+      setIsPending(false);
+    }
   };
+
+  const currentId = role === 'student' ? studentId : buasri;
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -198,91 +309,120 @@ export default function RegisterPage() {
           </button>
         </div>
 
-        {/* Step 1: Buasri ID Input */}
+        {/* Step 1: ID Input with Verification */}
         {step === 1 && (
-          <form onSubmit={handleRegisterClick} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-600">
-                {role === 'student' ? (
-                  <>
-                    Student ID
-                  </>
-                ) : (
-                  <>
-                   Buasri ID
-                  </>
-                )}
+                {role === 'student' ? 'Student ID' : 'Buasri ID'}
               </label>
-              <input
-                type="text"
-                value={buasri}
-                onChange={(e) => setBuasri(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Enter your Buasri ID"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={currentId}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder={`Enter your ${role === 'student' ? 'student' : 'Buasri'} ID`}
+                />
+                {isCheckingUsername && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {!isCheckingUsername && usernameStatus === 'taken' && (
+                  <Check size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+                )}
+                {!isCheckingUsername && usernameStatus === 'available' && (
+                  <X size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500" />
+                )}
+              </div>
+
+              {/* ID Status Messages */}
+              {currentId.length > 0 && currentId.length < 3 && (
+                <p className="mt-2 text-sm text-gray-600">ID must be at least 3 characters</p>
+              )}
+             
+              {usernameStatus === 'available' && (
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <X size={16} /> This ID was not found in the database
+                </p>
+              )}
             </div>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
+            {message && <p className="text-sm text-blue-600">{message}</p>}
+
             <button
-              type="submit"
-              className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
-              disabled={!buasri}
+              onClick={handleRegisterClick}
+              disabled={!currentId || usernameStatus !== 'taken'}
+              className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
             >
               Register
             </button>
-          </form>
+          </div>
         )}
 
-        {/* Step 2: Full Info + Password */}
+        {/* Step 2: Complete Registration Form */}
         {step === 2 && (
-          <form onSubmit={handleFinalSubmit} className="space-y-4 animate-fade-in">
-            {/* Display auto-filled information */}
-            <div className="p-4 mb-4 bg-gray-50 rounded-md">
-              <h3 className="mb-3 text-lg font-semibold text-gray-700">Your Information</h3>
-              <div className="space-y-2 text-sm">
-                <p><span className="font-medium">Buasri ID:</span> {buasri}</p>
-                <p><span className="font-medium">Full Name:</span> {fullName}</p>
-                {role === 'student' ? (
-                  <>
-                    <p><span className="font-medium">English Name:</span> {enName}</p>
-                    <p><span className="font-medium">Major:</span> {major}</p>
-                  </>
-                ) : (
-                  <>
-                    <p><span className="font-medium">Position:</span> {position}</p>
-                    <p><span className="font-medium">Email:</span> {email}</p>
-                    <p><span className="font-medium">Phone:</span> {phone}</p>
-                  </>
-                )}
-              </div>
+          <div className="space-y-4">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Complete Your Registration</h2>
+              
             </div>
 
-            {/* Editable Input Fields */}
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-600">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Enter your full name"
-              />
-            </div>
-            {role === 'teacher' && (
-              <>
+            {role === 'student' ? (
+              <div className="space-y-4 animate-fade-in">
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Position
+                    Student ID
                   </label>
                   <input
                     type="text"
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your position"
+                    placeholder="Enter your full name"
                   />
                 </div>
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Major
+                  </label>
+                  <input
+                    type="text"
+                    value={major}
+                    onChange={(e) => setMajor(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your major"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Advisor
+                  </label>
+                  <input
+                    type="text"
+                    value={advisor}
+                    onChange={(e) => setAdvisor(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your advisor name"
+                  />
+                </div>
+
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-600">
                     Email
@@ -295,6 +435,7 @@ export default function RegisterPage() {
                     placeholder="Enter your email"
                   />
                 </div>
+
                 <div>
                   <label className="block mb-2 text-sm font-medium text-gray-600">
                     Phone
@@ -307,42 +448,171 @@ export default function RegisterPage() {
                     placeholder="Enter your phone number"
                   />
                 </div>
-              </>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fade-in">
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Position
+                  </label>
+                  <input
+                    type="text"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your position"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </div>
             )}
 
             {/* Password Fields */}
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-600">
-                Password *
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Enter password (8-15 characters)"
-              />
-              {passwordError && <p className="mt-1 text-xs text-red-600">{passwordError}</p>}
-              <p className="mt-1 text-xs text-gray-500">
-                Must contain: 8-15 characters, uppercase, lowercase, and number
-              </p>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Create a password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {/* Password Requirements */}
+              {password && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.length ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.length ? 'text-green-700' : 'text-gray-600'}>
+                      8-15 characters
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.uppercase ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.uppercase ? 'text-green-700' : 'text-gray-600'}>
+                      At least one uppercase letter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.lowercase ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.lowercase ? 'text-green-700' : 'text-gray-600'}>
+                      At least one lowercase letter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.number ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.number ? 'text-green-700' : 'text-gray-600'}>
+                      At least one number
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+
             <div>
-              <label className="block mb-2 text-sm font-medium text-gray-600">
-                Confirm Password *
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
               </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Re-enter your password"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Confirm your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <X size={16} className="text-red-500" />
+                  <span className="text-red-600">Passwords do not match</span>
+                </div>
+              )}
+              {confirmPassword && password === confirmPassword && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <Check size={16} className="text-green-500" />
+                  <span className="text-green-700">Passwords match</span>
+                </div>
+              )}
             </div>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <div className="flex gap-4">
+            <div className="flex gap-4 pt-2">
               <button
                 type="button"
                 onClick={() => setStep(1)}
@@ -351,20 +621,21 @@ export default function RegisterPage() {
                 Back
               </button>
               <button
-                type="submit"
-                className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 transition duration-300"
-                disabled={isPending || passwordError !== '' || !password || !confirmPassword}
+                type="button"
+                onClick={handleFinalSubmit}
+                className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
+                disabled={isPending || !isPasswordValid || !password || !confirmPassword || password !== confirmPassword}
               >
                 {isPending ? 'Registering...' : 'Complete Registration'}
               </button>
             </div>
-          </form>
+          </div>
         )}
 
-        {/* Registration Link */}
+        {/* Login Link */}
         <div className="mt-6 text-center">
-          <Link href="/auth/login" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
-            Login (Already have an account?)
+          <Link href="/auth/login" className="text-indigo-600 hover:text-indigo-800 hover:underline">
+            Already have an account? Login
           </Link>
         </div>
 
@@ -394,10 +665,6 @@ export default function RegisterPage() {
           }
           .animate-fade-in {
             animation: fadeIn 0.4s ease-out;
-          }
-          input:focus {
-            box-shadow: none !important;
-            outline: none !important;
           }
         `}</style>
       </div>
