@@ -10,7 +10,7 @@ async function updateExpiredReservations(connection: any) {
     
     // Simple query: If checkout time has passed, mark as complete
     const updateQuery = `
-      UPDATE nodelogin.stud_reserv 
+      UPDATE cosci_reservation.student_member
       SET status = 'complete', 
           updated_at = NOW()
       WHERE status = 'occupied' 

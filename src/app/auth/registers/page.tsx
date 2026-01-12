@@ -1,14 +1,19 @@
+//app/auth/registers/page.tsx
 'use client'
 /* eslint-disable */
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [buasri, setBuasri] = useState('');
   const [studentId, setStudentId] = useState('');
+  const [studentbuasriId, setStudentbuasriId] = useState(''); 
+  const [staffId, setStaffId] = useState('');     
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
@@ -87,11 +92,13 @@ export default function RegisterPage() {
         // Auto-fill form fields from database
         if (role === 'student') {
           setFullName(data.userData.stu_name || '');
+          setStudentbuasriId(data.userData.stu_buasri || '');
           setPhone(data.userData.stu_phone || '');
           setMajor(data.userData.maj_th_name || '');
           setAdvisor(data.userData.staff_name || '');
         } else {
-          setFullName(`${data.userData.staff_firstname || ''} ${data.userData.staff_lastname || ''}`);
+          setStaffId(data.userData.staff_id || '' );
+          setFullName(data.userData.staff_name || '' );
           setEmail(data.userData.staff_email || '');
           setPhone(data.userData.staff_phone || '');
           setPosition(data.userData.staff_position || '');
@@ -99,7 +106,7 @@ export default function RegisterPage() {
       } else {
         setUsernameStatus('available');
         setUserData(null);
-        setError('This ID was not found in the database');
+       // setError('This ID was not found in the database');
       }
     } catch (error) {
       console.error('Error checking username:', error);
@@ -181,28 +188,35 @@ export default function RegisterPage() {
       // TODO: Call your registration API here
       const registrationData = {
         role,
-        id: role === 'student' ? studentId : buasri,
+        id: role === 'student' ? studentId : staffId,
+        buasri: role === 'student' ? studentbuasriId : buasri,
+        password,
         fullName,
         email,
         phone,
-        password,
+        
         ...(role === 'student' ? { major, advisor } : { position })
       };
 
-      console.log('Registration data:', registrationData);
-
       // Example API call:
-      // const response = await fetch('/api/register', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(registrationData)
-      // });
-      // const result = await response.json();
+      const response = await fetch('/api/auth/register', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(registrationData)
+       });
+       const result = await response.json();
+if (!response.ok) {
+      // Handle error response
+      setError(result.message || 'Registration failed. Please try again.');
+      return;
+    }
 
-      alert('Registration successful!');
-      // Redirect to login page or dashboard
-      // router.push('/auth/login');
-      
+    // Success - show message and redirect
+    alert('Registration successful! Redirecting to login...');
+    
+    // Redirect to login page
+    router.push('/auth/login');
+
     } catch (error) {
       console.error('Registration error:', error);
       setError('Registration failed. Please try again.');
@@ -366,7 +380,7 @@ export default function RegisterPage() {
         {step === 2 && (
           <div className="space-y-4">
             <div className="mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Complete Your Registration</h2>
+              <h2 className="text-xl font-bold text-gray-800">Registration Form</h2>
               
             </div>
 
@@ -380,6 +394,18 @@ export default function RegisterPage() {
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Student Buasri
+                  </label>
+                  <input
+                    type="text"
+                    value={studentbuasriId}
+                    onChange={(e) => setStudentbuasriId(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Enter your full name"
                   />
@@ -423,89 +449,7 @@ export default function RegisterPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your phone number"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 animate-fade-in">
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your full name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Position
-                  </label>
-                  <input
-                    type="text"
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your position"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-sm font-medium text-gray-600">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your phone number"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Password Fields */}
+                    {/* Password Fields */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
@@ -608,7 +552,208 @@ export default function RegisterPage() {
                   <span className="text-green-700">Passwords match</span>
                 </div>
               )}
+            </div> 
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fade-in">
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Staff ID
+                  </label>
+                  <input
+                    type="text"
+                    value={staffId}
+                    onChange={(e) => setStaffId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Position
+                  </label>
+                  <input
+                    type="text"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your position"
+                  />
+                </div>
+
+                {/* Password Fields */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Create a password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              {/* Password Requirements */}
+              {password && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.length ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.length ? 'text-green-700' : 'text-gray-600'}>
+                      8-15 characters
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.uppercase ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.uppercase ? 'text-green-700' : 'text-gray-600'}>
+                      At least one uppercase letter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.lowercase ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.lowercase ? 'text-green-700' : 'text-gray-600'}>
+                      At least one lowercase letter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {passwordValidation.number ? (
+                      <Check size={16} className="text-green-500" />
+                    ) : (
+                      <X size={16} className="text-red-500" />
+                    )}
+                    <span className={passwordValidation.number ? 'text-green-700' : 'text-gray-600'}>
+                      At least one number
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Confirm your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <X size={16} className="text-red-500" />
+                  <span className="text-red-600">Passwords do not match</span>
+                </div>
+              )}
+              {confirmPassword && password === confirmPassword && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <Check size={16} className="text-green-500" />
+                  <span className="text-green-700">Passwords match</span>
+                </div>
+              )}
+            </div> 
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-sm font-medium text-gray-600">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </div>
+            )}
+
+            
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -626,7 +771,7 @@ export default function RegisterPage() {
                 className="w-full px-4 py-2 text-white bg-indigo-500 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
                 disabled={isPending || !isPasswordValid || !password || !confirmPassword || password !== confirmPassword}
               >
-                {isPending ? 'Registering...' : 'Complete Registration'}
+                {isPending ? 'Registering...' : 'Register'}
               </button>
             </div>
           </div>
