@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME2,
+    database: process.env.DB_NAME3,
   });
 
   try {
@@ -40,9 +40,9 @@ export async function POST(req: Request) {
     // Check if user exists
     let rows: any;
     if (role === "student") {
-      [rows] = await pool.query('SELECT * FROM student WHERE stu_buasri = ?', [buasri]);
+      [rows] = await pool.query('SELECT * FROM student_member WHERE student_id = ?', [buasri]);
     } else {
-      [rows] = await pool.query('SELECT * FROM staff WHERE staff_buasri = ?', [buasri]);
+      [rows] = await pool.query('SELECT * FROM staff_member WHERE staff_buasri = ?', [buasri]);
     }
 
     if (Array.isArray(rows) && rows.length > 0) {

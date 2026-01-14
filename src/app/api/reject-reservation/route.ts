@@ -115,12 +115,12 @@ export async function POST(request: NextRequest) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      database: process.env.DB_NAME3,
     });
 
     // Get reservation details
     const [reservations] = await connection.execute(
-      'SELECT * FROM nodelogin.bookingsTest WHERE approval_token = ? LIMIT 1',
+      'SELECT * FROM cosci_reservation.BookingTest WHERE approval_token = ? LIMIT 1',
       [token]
     );
 
@@ -151,13 +151,13 @@ export async function POST(request: NextRequest) {
 
     // Update status to rejected
     await connection.execute(
-      'UPDATE nodelogin.bookingsTest SET status = ?, remark = ? WHERE approval_token = ?',
+      'UPDATE cosci_reservation.BookingTest SET status = ?, remark = ? WHERE approval_token = ?',
       ['rejected', reason, token]
     );
 
     // Get all seats for this booking
     const [allSeats] = await connection.execute(
-      'SELECT seat FROM nodelogin.bookingsTest WHERE approval_token = ?',
+      'SELECT seat FROM cosci_reservation.BookingTest WHERE approval_token = ?',
       [token]
     );
     const seats = (allSeats as any[]).map(s => s.seat).join(', ');

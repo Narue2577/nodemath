@@ -12,10 +12,10 @@ export async function GET(request: Request) {
     // 2. connect to database
 
      const connection = await mysql.createConnection({
-        host: 'localhost',      // e.g., localhost or your server IP
-        user: 'root',
-        password: 'Ertnom35!',
-        database: 'cosci_system'
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME2,
     });
     // 3. create a query to fetch data
 

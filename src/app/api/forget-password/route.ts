@@ -8,7 +8,7 @@ const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: 'cosci_system',
+  database: process.env.DB_NAME3,
 };
 
 export async function POST(request: NextRequest) {
@@ -18,12 +18,12 @@ export async function POST(request: NextRequest) {
   const connection = await mysql.createConnection(dbConfig);
   
   const [studentRows] = await connection.execute(
-    'SELECT * FROM student WHERE stu_email = ?',
+    'SELECT * FROM student_member WHERE student_email = ?',
     [email]
   );
   
   const [staffRows] = await connection.execute(
-    'SELECT * FROM staff WHERE staff_email = ?',
+    'SELECT * FROM staff_member WHERE staff_email = ?',
     [email]
   );
     const secret = process.env.JWT_SECRET ?? 'default-secret';

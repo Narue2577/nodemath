@@ -17,11 +17,11 @@ export async function PUT(request: NextRequest) {
         host: process.env.DB_HOST,
         user: process.env.DB_USER,
         password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
+        database: process.env.DB_NAME3,
       });
       
       const updateQuery = `
-        UPDATE nodelogin.bookingsTest
+        UPDATE cosci_reservation.BookingTest
         SET status = 'cancelled', updated_at = NOW()
         WHERE id = ? AND status = 'occupied'
       `;
@@ -60,13 +60,13 @@ export async function PUT(request: NextRequest) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      database: process.env.DB_NAME3,
     });
     
     // First check if record exists
     const checkQuery = `
-      SELECT * FROM nodelogin.bookingsTest
-      WHERE username = ? AND room = ? AND seat = ? AND status = 'occupied'
+      SELECT * FROM cosci_reservation.BookingTest
+      WHERE username = ? AND room = ? AND seat = ? AND (status = 'occupied' OR 'pending')
     `;
     
     console.log('Checking for existing record with:', { username, room, seat });
@@ -80,7 +80,7 @@ export async function PUT(request: NextRequest) {
     
     // Update the most recent reservation for this user/room/seat combination
     const updateQuery = `
-      UPDATE nodelogin.bookingsTest
+      UPDATE cosci_reservation.BookingTest
       SET status = 'cancelled', updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ? AND status = 'occupied'
       ORDER BY created_at DESC 

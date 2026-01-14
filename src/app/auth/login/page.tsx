@@ -19,68 +19,68 @@ import { useRouter } from "next/navigation";
 import { getSession, signIn } from "next-auth/react";
 
 export default function RegisterPage() {
-  const [buasri, setBuasri] = useState('');
+  const [identifier, setIdentifier] = useState(''); // Single state for both buasri and studentId
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [error, setError] = useState<string>('');
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
- const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!buasri || !password) {
-    setError('Please fill in all fields.');
-    return;
-  }
-
-  setIsPending(true);
-  setError('');
-
-  try {
-    const result = await signIn('credentials', {
-      buasri,
-      role,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setError('Invalid credentials. Please try again.');
-      setIsPending(false);
+    if (!identifier || !password) {
+      setError('Please fill in all fields.');
       return;
     }
 
-    // Add a small delay to ensure session is updated
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Get fresh session
-    const session = await getSession();
-    console.log('Session after login:', session); // Debug log
-    
-    if (session?.user) {
-      const userRole = (session.user as any).role;
+    setIsPending(true);
+    setError('');
+
+    try {
+      const result = await signIn('credentials', {
+        buasri: identifier, // Send as 'buasri' regardless of role
+        role,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError('Invalid credentials. Please try again.');
+        setIsPending(false);
+        return;
+      }
+
+      // Add a small delay to ensure session is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Redirect based on role
-      if (userRole === 'teacher') {
-        router.push('/dashboard/admin');
-      } else if (userRole === 'student') {
-        router.push('/dashboard/student');
+      // Get fresh session
+      const session = await getSession();
+      console.log('Session after login:', session);
+      
+      if (session?.user) {
+        const userRole = (session.user as any).role;
+        
+        // Redirect based on role
+        if (userRole === 'teacher') {
+          router.push('/dashboard/admin');
+        } else if (userRole === 'student') {
+          router.push('/dashboard/student');
+        } else {
+          setError('User role not found. Please contact administrator.');
+          setIsPending(false);
+        }
       } else {
-        // Fallback if role is undefined
-        setError('User role not found. Please contact administrator.');
+        setError('Failed to retrieve session. Please try again.');
         setIsPending(false);
       }
-    } else {
-      setError('Failed to retrieve session. Please try again.');
+    } catch (error) {
+      setError('An error occurred during login.');
+      console.error('Login error:', error);
       setIsPending(false);
     }
-  } catch (error) {
-    setError('An error occurred during login.');
-    console.error('Login error:', error);
-    setIsPending(false);
-  }
-};
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-lg p-6 bg-white rounded-lg shadow-lg">　
@@ -101,14 +101,14 @@ export default function RegisterPage() {
         <form className="space-y-4" onSubmit={handleLogin}>
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-600">
-              Buasri ID
+              {role === 'student' ? 'Student ID' : 'Buasri ID'}
             </label>
             <input
               type="text"
-              value={buasri}
-              onChange={(e) => setBuasri(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Buasri ID"
+              placeholder={`Enter your ${role === 'student' ? 'Student ID' : 'Buasri ID'}`}
               required
             />
           </div>
@@ -166,21 +166,20 @@ export default function RegisterPage() {
               {isPending ? 'Logging in...' : 'Login'}
             </button>
           </div>
-           <Link href="/auth/registers" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
+          <Link href="/auth/registers" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
             Register (Do not have account?)
           </Link>
-           <div className="grid grid-cols-2 gap-3">
-             <a href={`/${encodeURIComponent('ใบลาป่วย.pdf')}`}
+          <div className="grid grid-cols-2 gap-3">
+            <a href={`/${encodeURIComponent('ใบลาป่วย.pdf')}`}
               target="_blank"
               rel="noopener noreferrer" 
               className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
-            FAQ
-          </a>
+              FAQ
+            </a>
             <a href="/policy" className="grid text-center text-indigo-600 justify-items-center hover:text-indigo-800">
-            Policy
-          </a>
-        </div>
-
+              Policy
+            </a>
+          </div>
         </form>
       </div>
     </div>

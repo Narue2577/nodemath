@@ -275,7 +275,7 @@ async function updateExpiredReservations(connection: any) {
       CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) as end_datetime,
       NOW() as current_datetime,
       CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1)) < NOW() as is_expired
-    FROM nodelogin.bookingsTest
+    FROM cosci_reservation.BookingTest
     WHERE (status = 'occupied' OR status = 'pending')
     LIMIT 5
   
@@ -287,7 +287,7 @@ async function updateExpiredReservations(connection: any) {
     
     const [CountResult]: any = await connection.execute(`
       SELECT COUNT(*) as count
-      FROM nodelogin.bookingsTest
+      FROM cosci_reservation.BookingTest
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
     `);
@@ -303,7 +303,7 @@ async function updateExpiredReservations(connection: any) {
     
     // Update STUDENT bookings (ADDED)
     const query = `
-      UPDATE nodelogin.bookingsTest
+      UPDATE cosci_reservation.BookingTest
       SET status = 'complete', updated_at = NOW()
       WHERE (status = 'occupied' OR status = 'pending')
       AND CONCAT(date_out, ' ', SUBSTRING_INDEX(period_time, '-', -1), ':00') < NOW()
@@ -331,7 +331,7 @@ export async function GET(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME3
     });
 
     // First, update any expired reservations
@@ -340,7 +340,7 @@ export async function GET(request: Request) {
 
    
     const selectQuery = `
-      SELECT room, seat, status, major FROM nodelogin.bookingsTest
+      SELECT room, seat, status, major FROM cosci_reservation.BookingTest
       WHERE (status = 'occupied' OR status = 'pending')
     `;
 
@@ -370,7 +370,7 @@ export async function POST(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      database: process.env.DB_NAME3,
       charset: 'utf8mb4'
     });
 
@@ -441,7 +441,7 @@ export async function POST(request: Request) {
     const approvalToken = crypto.randomUUID();
     const placeholders = seatIds.map(() => '?').join(',');
     const checkQuery = `
-      SELECT seat FROM nodelogin.bookingslist
+      SELECT seat FROM cosci_reservation.BookingTest
       WHERE room = ? AND seat IN (${placeholders}) AND (status = 'occupied' OR status = 'pending')
     `;
 
@@ -462,7 +462,7 @@ export async function POST(request: Request) {
 
     // Insert reservation with different status based on role
         const insertQuery = `
-      INSERT INTO nodelogin.bookingsTest
+      INSERT INTO cosci_reservation.BookingTest
       (username, major, room, seat, date_in, date_out, period_time, advisor_name, advisor, admin, status, approval_token, created_at, updated_at) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
@@ -543,7 +543,7 @@ export async function PUT(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME3
     });
 
     // First, update any expired reservations
@@ -562,7 +562,7 @@ export async function PUT(request: Request) {
 
     // Check if the reservation exists
     const checkQuery = `
-      SELECT * FROM nodelogin.bookingsTest
+      SELECT * FROM cosci_reservation.BookingTest
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
@@ -575,7 +575,7 @@ export async function PUT(request: Request) {
     }
 
     const updateQuery = `
-      UPDATE nodelogin.bookingsTest
+      UPDATE cosci_reservation.BookingTest
       SET major = ?, date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;

@@ -8,7 +8,7 @@ async function updateExpiredReservations(connection: any) {
     console.log('Checking for expired reservations...');
     
     const query = `
-      UPDATE nodelogin.bookingsTest
+      UPDATE cosci_reservation.BookingTest
       SET status = 'complete', updated_at = NOW()
       WHERE (status = 'occupied' OR status = 'pending')
       AND STR_TO_DATE(
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME3
     });
 
     // ⭐ ADDED: Update expired reservations before fetching
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     // ⭐ FIXED: Changed peroid_time to period_time (was misspelled)
     const selectQuery = `
       SELECT id, room, seat, date_in, date_out, period_time,advisor_name, advisor,  status,admin
-      FROM nodelogin.bookingsTest 
+      FROM cosci_reservation.BookingTest
       WHERE username = ? AND (status = 'occupied' OR status = 'pending')
       ORDER BY created_at DESC
     `;
@@ -108,7 +108,7 @@ export async function PUT(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME3
     });
 
     // ⭐ ADDED: Update expired reservations before processing
@@ -124,7 +124,7 @@ export async function PUT(request: Request) {
 
     // Check if the reservation exists
     const checkQuery = `
-      SELECT * FROM nodelogin.bookingsTest 
+      SELECT * FROM cosci_reservation.BookingTest 
       WHERE username = ? AND room = ? AND seat = ?
     `;
 
@@ -137,7 +137,7 @@ export async function PUT(request: Request) {
 
     // ⭐ FIXED: Changed peroid_time to period_time in UPDATE query
     const updateQuery = `
-      UPDATE nodelogin.bookingsTest 
+      UPDATE cosci_reservation.BookingTest
       SET date_in = ?, date_out = ?, period_time = ?, status = ?, updated_at = NOW()
       WHERE username = ? AND room = ? AND seat = ?
     `;

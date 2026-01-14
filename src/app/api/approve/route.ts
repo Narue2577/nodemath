@@ -359,12 +359,12 @@ export async function GET(request: Request) {
       host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+      database: process.env.DB_NAME3
     });
 
     // Check if reservation exists
     const [reservations] = await connection.execute(
-      'SELECT * FROM nodelogin.bookingsTest WHERE approval_token = ?',
+      'SELECT * FROM cosci_reservation.BookingTest WHERE approval_token = ?',
       [token]
     );
 
